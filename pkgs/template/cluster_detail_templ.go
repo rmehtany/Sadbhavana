@@ -5,24 +5,24 @@ package template
 
 //lint:file-ignore SA4006 This context is only used if a nested component is present.
 
-import "github.com/a-h/templ"
-import templruntime "github.com/a-h/templ/runtime"
-
 import (
 	"fmt"
 	"time"
+
+	"github.com/a-h/templ"
+	templruntime "github.com/a-h/templ/runtime"
 )
 
 type ClusterDetail struct {
-	TownCode     string
-	TownName     string
-	TreeCount    int64
-	CenterLat    float64
-	CenterLng    float64
-	FirstPlanted *time.Time
-	LastPlanted  *time.Time
-	UniqueDonors int64
-	TownMetadata map[string]interface{}
+	ProjectCode     string
+	ProjectName     string
+	TreeCount       int64
+	CenterLat       float64
+	CenterLng       float64
+	FirstPlanted    *time.Time
+	LastPlanted     *time.Time
+	UniqueDonors    int64
+	ProjectMetadata map[string]interface{}
 }
 
 func ClusterDetailPanel(cluster *ClusterDetail) templ.Component {
@@ -51,7 +51,7 @@ func ClusterDetailPanel(cluster *ClusterDetail) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var2 string
-		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(cluster.TownName)
+		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(cluster.ProjectName)
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkgs/template/cluster_detail.templ`, Line: 23, Col: 24}
 		}
@@ -59,12 +59,12 @@ func ClusterDetailPanel(cluster *ClusterDetail) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</h3><dl><dt>Town Code:</dt><dd>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</h3><dl><dt>Project Code:</dt><dd>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var3 string
-		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(cluster.TownCode)
+		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(cluster.ProjectCode)
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkgs/template/cluster_detail.templ`, Line: 26, Col: 25}
 		}
@@ -157,12 +157,12 @@ func ClusterDetailPanel(cluster *ClusterDetail) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if len(cluster.TownMetadata) > 0 {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<dt>Town Info:</dt><dd>")
+		if len(cluster.ProjectMetadata) > 0 {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<dt>Project Info:</dt><dd>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			for key, value := range cluster.TownMetadata {
+			for key, value := range cluster.ProjectMetadata {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<strong>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -225,12 +225,12 @@ func ClusterDetailPanel(cluster *ClusterDetail) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" data-zoom=\"14\">Zoom to Town</button> <button class=\"btn\" hx-get=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\" data-zoom=\"14\">Zoom to Project</button> <button class=\"btn\" hx-get=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var13 string
-		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("/api/trees/list?townCode=%s", cluster.TownCode))
+		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("/api/trees/list?projectCode=%s", cluster.ProjectCode))
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkgs/template/cluster_detail.templ`, Line: 66, Col: 91}
 		}

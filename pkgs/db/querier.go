@@ -13,20 +13,28 @@ type Querier interface {
 	CreateDonor(ctx context.Context, arg CreateDonorParams) (CoreDonor, error)
 	// Insert a new file record
 	CreateFile(ctx context.Context, arg CreateFileParams) (CoreFile, error)
-	CreateTown(ctx context.Context, arg CreateTownParams) (CoreTown, error)
+	CreateProject(ctx context.Context, arg CreateProjectParams) (CoreProject, error)
 	// Insert a new tree
 	CreateTree(ctx context.Context, arg CreateTreeParams) (CreateTreeRow, error)
 	// Insert a new tree update
 	CreateTreeUpdate(ctx context.Context, arg CreateTreeUpdateParams) (CoreTreeUpdate, error)
-	DeleteTown(ctx context.Context, townCode string) error
+	DeleteProject(ctx context.Context, projectCode string) error
 	// Delete a specific tree update
 	DeleteTreeUpdate(ctx context.Context, arg DeleteTreeUpdateParams) error
-	// Get detailed statistics for a town cluster
-	GetClusterDetail(ctx context.Context, townCode string) (GetClusterDetailRow, error)
+	// Get detailed statistics for a project cluster
+	GetClusterDetail(ctx context.Context, projectCode string) (GetClusterDetailRow, error)
 	// Get a single donor by ID
 	GetDonor(ctx context.Context, id string) (CoreDonor, error)
-	// Get a donor by email
-	GetDonorByEmail(ctx context.Context, email string) (CoreDonor, error)
+	// Get a donor by phone_number
+	GetDonorByPhoneNumber(ctx context.Context, phoneNumber string) (CoreDonor, error)
+	// Get detailed statistics for a project cluster
+	GetDonorClusterDetail(ctx context.Context, arg GetDonorClusterDetailParams) (GetDonorClusterDetailRow, error)
+	// Zoom levels 13+: Return individual trees with details
+	GetDonorIndividualTrees(ctx context.Context, arg GetDonorIndividualTreesParams) ([]GetDonorIndividualTreesRow, error)
+	// Zoom levels 9-12: Grid-based clustering for medium zoom
+	GetDonorTreesByGridCluster(ctx context.Context, arg GetDonorTreesByGridClusterParams) ([]GetDonorTreesByGridClusterRow, error)
+	// Zoom levels 1-8: Get tree counts grouped by project
+	GetDonorTreesByProjectCluster(ctx context.Context, arg GetDonorTreesByProjectClusterParams) ([]GetDonorTreesByProjectClusterRow, error)
 	// Get donor with their tree count
 	GetDonorWithTreeCount(ctx context.Context, id string) (GetDonorWithTreeCountRow, error)
 	// Get a file by ID
@@ -35,33 +43,33 @@ type Querier interface {
 	GetIndividualTrees(ctx context.Context, arg GetIndividualTreesParams) ([]GetIndividualTreesRow, error)
 	// Get the most recent update for a tree
 	GetLatestTreeUpdate(ctx context.Context, treeID string) (GetLatestTreeUpdateRow, error)
+	GetProject(ctx context.Context, projectCode string) (CoreProject, error)
+	GetProjectWithTreeCount(ctx context.Context, projectCode string) (GetProjectWithTreeCountRow, error)
 	// Get recent updates across all trees
 	GetRecentUpdates(ctx context.Context, limit int32) ([]GetRecentUpdatesRow, error)
-	GetTown(ctx context.Context, townCode string) (CoreTown, error)
-	GetTownWithTreeCount(ctx context.Context, townCode string) (GetTownWithTreeCountRow, error)
 	// Get a single tree by ID with full details
 	GetTreeByID(ctx context.Context, id string) (GetTreeByIDRow, error)
-	// Get total tree count, optionally filtered by town
+	// Get total tree count, optionally filtered by project
 	GetTreeCount(ctx context.Context, dollar_1 string) (int64, error)
 	// Get all updates for a specific tree
 	GetTreeUpdates(ctx context.Context, treeID string) ([]GetTreeUpdatesRow, error)
 	// Zoom levels 9-12: Grid-based clustering for medium zoom
 	GetTreesByGridCluster(ctx context.Context, arg GetTreesByGridClusterParams) ([]GetTreesByGridClusterRow, error)
-	// Zoom levels 1-8: Get tree counts grouped by town
-	GetTreesByTownCluster(ctx context.Context, arg GetTreesByTownClusterParams) ([]GetTreesByTownClusterRow, error)
-	// Get all trees in a specific town
-	GetTreesByTownCode(ctx context.Context, townCode string) ([]GetTreesByTownCodeRow, error)
+	// Zoom levels 1-8: Get tree counts grouped by project
+	GetTreesByProjectCluster(ctx context.Context, arg GetTreesByProjectClusterParams) ([]GetTreesByProjectClusterRow, error)
+	// Get all trees in a specific project
+	GetTreesByProjectCode(ctx context.Context, projectCode string) ([]GetTreesByProjectCodeRow, error)
 	// Get trees with their update counts
 	GetTreesWithUpdateCount(ctx context.Context, dollar_1 string) ([]GetTreesWithUpdateCountRow, error)
 	// Get all donors
 	ListDonors(ctx context.Context) ([]CoreDonor, error)
 	// Get all donors with their tree counts
 	ListDonorsWithTreeCounts(ctx context.Context) ([]ListDonorsWithTreeCountsRow, error)
-	ListTowns(ctx context.Context) ([]CoreTown, error)
-	ListTownsWithTreeCounts(ctx context.Context) ([]ListTownsWithTreeCountsRow, error)
+	ListProjects(ctx context.Context) ([]CoreProject, error)
+	ListProjectsWithTreeCounts(ctx context.Context) ([]ListProjectsWithTreeCountsRow, error)
 	// Update donor information
 	UpdateDonor(ctx context.Context, arg UpdateDonorParams) (CoreDonor, error)
-	UpdateTown(ctx context.Context, arg UpdateTownParams) (CoreTown, error)
+	UpdateProject(ctx context.Context, arg UpdateProjectParams) (CoreProject, error)
 }
 
 var _ Querier = (*Queries)(nil)

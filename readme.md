@@ -9,7 +9,7 @@ project/
 ├── db/
 │   ├── queries/           # SQL query files for sqlc
 │   │   ├── trees.sql      # ⭐ Core clustering queries
-│   │   ├── towns.sql      # Town management
+│   │   ├── projects.sql      # Project management
 │   │   ├── donors.sql     # Donor management
 │   │   └── tree_updates.sql # Tree updates & files
 │   ├── migrations/
@@ -27,8 +27,8 @@ project/
 
 **Three Clustering Strategies:**
 
-1. **Town Clusters** (zoom 1-8): `GetTreesByTownCluster`
-   - Groups by town
+1. **Project Clusters** (zoom 1-8): `GetTreesByProjectCluster`
+   - Groups by project
    - Returns aggregate counts and center points
 
 2. **Grid Clusters** (zoom 9-12): `GetTreesByGridCluster`
@@ -37,7 +37,7 @@ project/
 
 3. **Individual Trees** (zoom 13+): `GetIndividualTrees`
    - Returns actual tree locations
-   - Includes donor and town details
+   - Includes donor and project details
    - Limited to 1000 for performance
 
 ### 2. Web Module (`web/`)
@@ -46,8 +46,8 @@ project/
 - `GetMarkersInput` - Viewport bounds validation
 - `Marker` - Unified marker structure for all types
 - `TreeDetail` - Complete tree information
-- `ClusterDetail` - Town statistics
-- `MarkerType` enum - town-cluster, grid-cluster, tree
+- `ClusterDetail` - Project statistics
+- `MarkerType` enum - project-cluster, grid-cluster, tree
 
 **handlers.go** - Business Logic:
 - `GetMarkers()` - Routes to appropriate clustering method
@@ -93,11 +93,11 @@ Returns detailed information about a specific tree.
 
 **Response:** HTML detail panel
 
-### GET /api/cluster/{townCode}
-Returns statistics for a town cluster.
+### GET /api/cluster/{projectCode}
+Returns statistics for a project cluster.
 
 **Path Parameter:**
-- `townCode` (string, 2 chars)
+- `projectCode` (string, 2 chars)
 
 **Response:** HTML detail panel with aggregations
 
@@ -125,7 +125,7 @@ Returns statistics for a town cluster.
 
 ## Performance Characteristics
 
-- **Zoom 1-8**: ~10-50 town clusters (milliseconds)
+- **Zoom 1-8**: ~10-50 project clusters (milliseconds)
 - **Zoom 9-12**: ~50-200 grid clusters (tens of milliseconds)  
 - **Zoom 13+**: Up to 1000 individual trees (hundreds of milliseconds)
 - **Spatial Index**: GIST index makes all queries fast

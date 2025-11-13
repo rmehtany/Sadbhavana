@@ -5,6 +5,7 @@ const MapManager = {
   map: null,
   markers: [],
   markerLayer: null,
+  donorID: '',   // <-- donorID stored here
 
   // Initialize the map
   init(lat = 40.7128, lng = -74.0060, zoom = 10) {
@@ -13,6 +14,7 @@ const MapManager = {
     const urlLat = params.get('lat');
     const urlLng = params.get('lng');
     const urlZoom = params.get('zoom');
+    this.donorID = params.get('donor_id') || '';  // <-- assign donorID
 
     const centerLat = urlLat ? parseFloat(urlLat) : lat;
     const centerLng = urlLng ? parseFloat(urlLng) : lng;
@@ -56,10 +58,10 @@ const MapManager = {
         this.map.flyTo([lat, lng], zoom);
       }
 
-      // Listen for zoom-to-town button clicks
-      if (e.target.classList.contains('zoom-to-town')) {
-        const townCode = e.target.dataset.townCode;
-        this.zoomToTown(townCode);
+      // Listen for zoom-to-project button clicks
+      if (e.target.classList.contains('zoom-to-project')) {
+        const projectCode = e.target.dataset.projectCode;
+        this.zoomToProject(projectCode);
       }
     });
   },
@@ -74,7 +76,8 @@ const MapManager = {
       south: bounds.getSouth(),
       east: bounds.getEast(),
       west: bounds.getWest(),
-      zoom: zoom
+      zoom: zoom,
+      donor_id: this.donorID   // <-- use this.donorID
     });
 
     // Show loading indicator
@@ -129,7 +132,7 @@ const MapManager = {
           // Grid cluster: zoom to level 13 at cluster centroid
           this.map.flyTo([lat, lng], 13);
         } else {
-          // Town cluster or individual tree: show detail panel
+          // Project cluster or individual tree: show detail panel
           htmx.trigger(el, 'click');
           this.showDetailPanel();
         }
@@ -144,11 +147,11 @@ const MapManager = {
     let iconHtml = '';
     let className = 'custom-marker';
 
-    if (type === 'town-cluster') {
-      iconHtml = `<div class="marker-cluster town-cluster">
+    if (type === 'project-cluster') {
+      iconHtml = `<div class="marker-cluster project-cluster">
                     <span>${count}</span>
                   </div>`;
-      className += ' town-cluster-icon';
+      className += ' project-cluster-icon';
     } else if (type === 'grid-cluster') {
       iconHtml = `<div class="marker-cluster grid-cluster">
                     <span>${count}</span>
@@ -184,12 +187,12 @@ const MapManager = {
     document.getElementById('detail-panel').classList.add('active');
   },
 
-  // Zoom to town by fetching cluster detail for centroid
-  zoomToTown(townCode) {
+  // Zoom to project by fetching cluster detail for centroid
+  zoomToProject(projectCode) {
     this.showLoading(true);
 
-    // Fetch cluster detail JSON to get the town's centroid
-    fetch(`/api/cluster/${townCode}/raw`)
+    // Fetch cluster detail JSON to get the project's centroid
+    fetch(`/api/cluster/${projectCode}/raw?donor_id=${this.donorID}`)  // <-- use this.donorID
       .then(response => response.json())
       .then(data => {
         const lat = data.CenterLat;
@@ -198,7 +201,7 @@ const MapManager = {
         this.showLoading(false);
       })
       .catch(error => {
-        console.error('Failed to fetch town center:', error);
+        console.error('Failed to fetch project center:', error);
         this.showLoading(false);
       });
   }

@@ -7,7 +7,7 @@ import (
 type MarkerType string
 
 const (
-	MarkerTypeTownCluster MarkerType = "town-cluster"
+	MarkerTypeProjectCluster MarkerType = "project-cluster"
 	MarkerTypeGridCluster MarkerType = "grid-cluster"
 	MarkerTypeTree        MarkerType = "tree"
 )
@@ -39,7 +39,7 @@ templ MarkerContainer(markers []Marker) {
 				if marker.Label != "" {
 					data-label={ marker.Label }
 				}
-				if marker.Type == MarkerTypeTownCluster {
+				if marker.Type == MarkerTypeProjectCluster {
 					hx-get={ fmt.Sprintf("/api/cluster/%s", marker.ID) }
 					hx-target="#detail-panel"
 				}

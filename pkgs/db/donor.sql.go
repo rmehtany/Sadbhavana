@@ -12,28 +12,28 @@ import (
 const createDonor = `-- name: CreateDonor :one
 INSERT INTO core.donor (
     donor_name,
-    email
+    phone_number
 ) VALUES (
     $1, $2
 )
-RETURNING id, donor_name, email
+RETURNING id, donor_name, phone_number
 `
 
 type CreateDonorParams struct {
-	DonorName string `json:"donor_name"`
-	Email     string `json:"email"`
+	DonorName   string `json:"donor_name"`
+	PhoneNumber string `json:"phone_number"`
 }
 
 // Insert a new donor
 func (q *Queries) CreateDonor(ctx context.Context, arg CreateDonorParams) (CoreDonor, error) {
-	row := q.db.QueryRow(ctx, createDonor, arg.DonorName, arg.Email)
+	row := q.db.QueryRow(ctx, createDonor, arg.DonorName, arg.PhoneNumber)
 	var i CoreDonor
-	err := row.Scan(&i.ID, &i.DonorName, &i.Email)
+	err := row.Scan(&i.ID, &i.DonorName, &i.PhoneNumber)
 	return i, err
 }
 
 const getDonor = `-- name: GetDonor :one
-SELECT id, donor_name, email
+SELECT id, donor_name, phone_number
 FROM core.donor
 WHERE id = $1
 `
@@ -42,21 +42,21 @@ WHERE id = $1
 func (q *Queries) GetDonor(ctx context.Context, id string) (CoreDonor, error) {
 	row := q.db.QueryRow(ctx, getDonor, id)
 	var i CoreDonor
-	err := row.Scan(&i.ID, &i.DonorName, &i.Email)
+	err := row.Scan(&i.ID, &i.DonorName, &i.PhoneNumber)
 	return i, err
 }
 
-const getDonorByEmail = `-- name: GetDonorByEmail :one
-SELECT id, donor_name, email
+const getDonorByPhoneNumber = `-- name: GetDonorByPhoneNumber :one
+SELECT id, donor_name, phone_number
 FROM core.donor
-WHERE email = $1
+WHERE phone_number = $1
 `
 
-// Get a donor by email
-func (q *Queries) GetDonorByEmail(ctx context.Context, email string) (CoreDonor, error) {
-	row := q.db.QueryRow(ctx, getDonorByEmail, email)
+// Get a donor by phone_number
+func (q *Queries) GetDonorByPhoneNumber(ctx context.Context, phoneNumber string) (CoreDonor, error) {
+	row := q.db.QueryRow(ctx, getDonorByPhoneNumber, phoneNumber)
 	var i CoreDonor
-	err := row.Scan(&i.ID, &i.DonorName, &i.Email)
+	err := row.Scan(&i.ID, &i.DonorName, &i.PhoneNumber)
 	return i, err
 }
 
@@ -64,19 +64,19 @@ const getDonorWithTreeCount = `-- name: GetDonorWithTreeCount :one
 SELECT 
     d.id,
     d.donor_name,
-    d.email,
+    d.phone_number,
     COUNT(t.id) as tree_count
 FROM core.donor d
 LEFT JOIN core.tree t ON d.id = t.donor_id
 WHERE d.id = $1
-GROUP BY d.id, d.donor_name, d.email
+GROUP BY d.id, d.donor_name, d.phone_number
 `
 
 type GetDonorWithTreeCountRow struct {
-	ID        string `json:"id"`
-	DonorName string `json:"donor_name"`
-	Email     string `json:"email"`
-	TreeCount int64  `json:"tree_count"`
+	ID          string `json:"id"`
+	DonorName   string `json:"donor_name"`
+	PhoneNumber string `json:"phone_number"`
+	TreeCount   int64  `json:"tree_count"`
 }
 
 // Get donor with their tree count
@@ -86,14 +86,14 @@ func (q *Queries) GetDonorWithTreeCount(ctx context.Context, id string) (GetDono
 	err := row.Scan(
 		&i.ID,
 		&i.DonorName,
-		&i.Email,
+		&i.PhoneNumber,
 		&i.TreeCount,
 	)
 	return i, err
 }
 
 const listDonors = `-- name: ListDonors :many
-SELECT id, donor_name, email
+SELECT id, donor_name, phone_number
 FROM core.donor
 ORDER BY donor_name
 `
@@ -108,7 +108,7 @@ func (q *Queries) ListDonors(ctx context.Context) ([]CoreDonor, error) {
 	items := []CoreDonor{}
 	for rows.Next() {
 		var i CoreDonor
-		if err := rows.Scan(&i.ID, &i.DonorName, &i.Email); err != nil {
+		if err := rows.Scan(&i.ID, &i.DonorName, &i.PhoneNumber); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -123,19 +123,19 @@ const listDonorsWithTreeCounts = `-- name: ListDonorsWithTreeCounts :many
 SELECT 
     d.id,
     d.donor_name,
-    d.email,
+    d.phone_number,
     COUNT(t.id) as tree_count
 FROM core.donor d
 LEFT JOIN core.tree t ON d.id = t.donor_id
-GROUP BY d.id, d.donor_name, d.email
+GROUP BY d.id, d.donor_name, d.phone_number
 ORDER BY tree_count DESC, d.donor_name
 `
 
 type ListDonorsWithTreeCountsRow struct {
-	ID        string `json:"id"`
-	DonorName string `json:"donor_name"`
-	Email     string `json:"email"`
-	TreeCount int64  `json:"tree_count"`
+	ID          string `json:"id"`
+	DonorName   string `json:"donor_name"`
+	PhoneNumber string `json:"phone_number"`
+	TreeCount   int64  `json:"tree_count"`
 }
 
 // Get all donors with their tree counts
@@ -151,7 +151,7 @@ func (q *Queries) ListDonorsWithTreeCounts(ctx context.Context) ([]ListDonorsWit
 		if err := rows.Scan(
 			&i.ID,
 			&i.DonorName,
-			&i.Email,
+			&i.PhoneNumber,
 			&i.TreeCount,
 		); err != nil {
 			return nil, err
@@ -168,21 +168,21 @@ const updateDonor = `-- name: UpdateDonor :one
 UPDATE core.donor
 SET 
     donor_name = $2,
-    email = $3
+    phone_number = $3
 WHERE id = $1
-RETURNING id, donor_name, email
+RETURNING id, donor_name, phone_number
 `
 
 type UpdateDonorParams struct {
-	ID        string `json:"id"`
-	DonorName string `json:"donor_name"`
-	Email     string `json:"email"`
+	ID          string `json:"id"`
+	DonorName   string `json:"donor_name"`
+	PhoneNumber string `json:"phone_number"`
 }
 
 // Update donor information
 func (q *Queries) UpdateDonor(ctx context.Context, arg UpdateDonorParams) (CoreDonor, error) {
-	row := q.db.QueryRow(ctx, updateDonor, arg.ID, arg.DonorName, arg.Email)
+	row := q.db.QueryRow(ctx, updateDonor, arg.ID, arg.DonorName, arg.PhoneNumber)
 	var i CoreDonor
-	err := row.Scan(&i.ID, &i.DonorName, &i.Email)
+	err := row.Scan(&i.ID, &i.DonorName, &i.PhoneNumber)
 	return i, err
 }

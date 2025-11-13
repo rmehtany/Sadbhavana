@@ -13,7 +13,7 @@ import (
 
 const createTree = `-- name: CreateTree :one
 INSERT INTO core.tree (
-    town_code,
+    project_code,
     tree_number,
     donor_id,
     tree_location,
@@ -22,11 +22,11 @@ INSERT INTO core.tree (
 ) VALUES (
     $1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326)::geography, $6, $7
 )
-RETURNING id, town_code, tree_number, donor_id, planted_at, created_at, metadata
+RETURNING id, project_code, tree_number, donor_id, planted_at, created_at, metadata
 `
 
 type CreateTreeParams struct {
-	TownCode      string             `json:"town_code"`
+	ProjectCode   string             `json:"project_code"`
 	TreeNumber    int32              `json:"tree_number"`
 	DonorID       string             `json:"donor_id"`
 	StMakepoint   interface{}        `json:"st_makepoint"`
@@ -36,19 +36,19 @@ type CreateTreeParams struct {
 }
 
 type CreateTreeRow struct {
-	ID         string             `json:"id"`
-	TownCode   string             `json:"town_code"`
-	TreeNumber int32              `json:"tree_number"`
-	DonorID    string             `json:"donor_id"`
-	PlantedAt  pgtype.Timestamptz `json:"planted_at"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	Metadata   []byte             `json:"metadata"`
+	ID          string             `json:"id"`
+	ProjectCode string             `json:"project_code"`
+	TreeNumber  int32              `json:"tree_number"`
+	DonorID     string             `json:"donor_id"`
+	PlantedAt   pgtype.Timestamptz `json:"planted_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	Metadata    []byte             `json:"metadata"`
 }
 
 // Insert a new tree
 func (q *Queries) CreateTree(ctx context.Context, arg CreateTreeParams) (CreateTreeRow, error) {
 	row := q.db.QueryRow(ctx, createTree,
-		arg.TownCode,
+		arg.ProjectCode,
 		arg.TreeNumber,
 		arg.DonorID,
 		arg.StMakepoint,
@@ -59,7 +59,7 @@ func (q *Queries) CreateTree(ctx context.Context, arg CreateTreeParams) (CreateT
 	var i CreateTreeRow
 	err := row.Scan(
 		&i.ID,
-		&i.TownCode,
+		&i.ProjectCode,
 		&i.TreeNumber,
 		&i.DonorID,
 		&i.PlantedAt,
@@ -71,41 +71,41 @@ func (q *Queries) CreateTree(ctx context.Context, arg CreateTreeParams) (CreateT
 
 const getClusterDetail = `-- name: GetClusterDetail :one
 SELECT 
-    tw.town_code,
-    tw.town_name,
-    tw.metadata as town_metadata,
+    tw.project_code,
+    tw.project_name,
+    tw.metadata as project_metadata,
     COUNT(t.id) as tree_count,
     AVG(ST_Y(t.tree_location::geometry))::FLOAT as center_lat,
     AVG(ST_X(t.tree_location::geometry))::FLOAT as center_lng,
     MIN(t.planted_at)::timestamptz as first_planted,
     MAX(t.planted_at)::timestamptz as last_planted,
     COUNT(DISTINCT t.donor_id) as unique_donors
-FROM core.town tw
-LEFT JOIN core.tree t ON tw.town_code = t.town_code
-WHERE tw.town_code = $1
-GROUP BY tw.town_code, tw.town_name, tw.metadata
+FROM core.project tw
+LEFT JOIN core.tree t ON tw.project_code = t.project_code
+WHERE tw.project_code = $1
+GROUP BY tw.project_code, tw.project_name, tw.metadata
 `
 
 type GetClusterDetailRow struct {
-	TownCode     string             `json:"town_code"`
-	TownName     string             `json:"town_name"`
-	TownMetadata []byte             `json:"town_metadata"`
-	TreeCount    int64              `json:"tree_count"`
-	CenterLat    float64            `json:"center_lat"`
-	CenterLng    float64            `json:"center_lng"`
-	FirstPlanted pgtype.Timestamptz `json:"first_planted"`
-	LastPlanted  pgtype.Timestamptz `json:"last_planted"`
-	UniqueDonors int64              `json:"unique_donors"`
+	ProjectCode     string             `json:"project_code"`
+	ProjectName     string             `json:"project_name"`
+	ProjectMetadata []byte             `json:"project_metadata"`
+	TreeCount       int64              `json:"tree_count"`
+	CenterLat       float64            `json:"center_lat"`
+	CenterLng       float64            `json:"center_lng"`
+	FirstPlanted    pgtype.Timestamptz `json:"first_planted"`
+	LastPlanted     pgtype.Timestamptz `json:"last_planted"`
+	UniqueDonors    int64              `json:"unique_donors"`
 }
 
-// Get detailed statistics for a town cluster
-func (q *Queries) GetClusterDetail(ctx context.Context, townCode string) (GetClusterDetailRow, error) {
-	row := q.db.QueryRow(ctx, getClusterDetail, townCode)
+// Get detailed statistics for a project cluster
+func (q *Queries) GetClusterDetail(ctx context.Context, projectCode string) (GetClusterDetailRow, error) {
+	row := q.db.QueryRow(ctx, getClusterDetail, projectCode)
 	var i GetClusterDetailRow
 	err := row.Scan(
-		&i.TownCode,
-		&i.TownName,
-		&i.TownMetadata,
+		&i.ProjectCode,
+		&i.ProjectName,
+		&i.ProjectMetadata,
 		&i.TreeCount,
 		&i.CenterLat,
 		&i.CenterLng,
@@ -116,10 +116,63 @@ func (q *Queries) GetClusterDetail(ctx context.Context, townCode string) (GetClu
 	return i, err
 }
 
-const getIndividualTrees = `-- name: GetIndividualTrees :many
+const getDonorClusterDetail = `-- name: GetDonorClusterDetail :one
+SELECT 
+    tw.project_code,
+    tw.project_name,
+    tw.metadata as project_metadata,
+    COUNT(t.id) as tree_count,
+    AVG(ST_Y(t.tree_location::geometry))::FLOAT as center_lat,
+    AVG(ST_X(t.tree_location::geometry))::FLOAT as center_lng,
+    MIN(t.planted_at)::timestamptz as first_planted,
+    MAX(t.planted_at)::timestamptz as last_planted,
+    COUNT(DISTINCT t.donor_id) as unique_donors
+FROM core.project tw
+LEFT JOIN core.tree t ON tw.project_code = t.project_code
+WHERE tw.project_code = $1
+  AND t.donor_id = $2
+GROUP BY tw.project_code, tw.project_name, tw.metadata
+`
+
+type GetDonorClusterDetailParams struct {
+	ProjectCode string `json:"project_code"`
+	DonorID     string `json:"donor_id"`
+}
+
+type GetDonorClusterDetailRow struct {
+	ProjectCode     string             `json:"project_code"`
+	ProjectName     string             `json:"project_name"`
+	ProjectMetadata []byte             `json:"project_metadata"`
+	TreeCount       int64              `json:"tree_count"`
+	CenterLat       float64            `json:"center_lat"`
+	CenterLng       float64            `json:"center_lng"`
+	FirstPlanted    pgtype.Timestamptz `json:"first_planted"`
+	LastPlanted     pgtype.Timestamptz `json:"last_planted"`
+	UniqueDonors    int64              `json:"unique_donors"`
+}
+
+// Get detailed statistics for a project cluster
+func (q *Queries) GetDonorClusterDetail(ctx context.Context, arg GetDonorClusterDetailParams) (GetDonorClusterDetailRow, error) {
+	row := q.db.QueryRow(ctx, getDonorClusterDetail, arg.ProjectCode, arg.DonorID)
+	var i GetDonorClusterDetailRow
+	err := row.Scan(
+		&i.ProjectCode,
+		&i.ProjectName,
+		&i.ProjectMetadata,
+		&i.TreeCount,
+		&i.CenterLat,
+		&i.CenterLng,
+		&i.FirstPlanted,
+		&i.LastPlanted,
+		&i.UniqueDonors,
+	)
+	return i, err
+}
+
+const getDonorIndividualTrees = `-- name: GetDonorIndividualTrees :many
 SELECT 
     t.id,
-    t.town_code,
+    t.project_code,
     t.tree_number,
     t.donor_id,
     ST_Y(t.tree_location::geometry)::FLOAT as latitude,
@@ -128,10 +181,230 @@ SELECT
     t.created_at,
     t.metadata,
     d.donor_name,
-    tw.town_name
+    tw.project_name
 FROM core.tree t
 JOIN core.donor d ON t.donor_id = d.id
-JOIN core.town tw ON t.town_code = tw.town_code
+JOIN core.project tw ON t.project_code = tw.project_code
+WHERE ST_Y(t.tree_location::geometry) BETWEEN $1 AND $2
+  AND ST_X(t.tree_location::geometry) BETWEEN $3 AND $4
+  AND t.donor_id = $5
+LIMIT $6
+`
+
+type GetDonorIndividualTreesParams struct {
+	SouthLat    interface{} `json:"south_lat"`
+	NorthLat    interface{} `json:"north_lat"`
+	WestLng     interface{} `json:"west_lng"`
+	EastLng     interface{} `json:"east_lng"`
+	DonorID     string      `json:"donor_id"`
+	ResultLimit int32       `json:"result_limit"`
+}
+
+type GetDonorIndividualTreesRow struct {
+	ID          string             `json:"id"`
+	ProjectCode string             `json:"project_code"`
+	TreeNumber  int32              `json:"tree_number"`
+	DonorID     string             `json:"donor_id"`
+	Latitude    float64            `json:"latitude"`
+	Longitude   float64            `json:"longitude"`
+	PlantedAt   pgtype.Timestamptz `json:"planted_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	Metadata    []byte             `json:"metadata"`
+	DonorName   string             `json:"donor_name"`
+	ProjectName string             `json:"project_name"`
+}
+
+// Zoom levels 13+: Return individual trees with details
+func (q *Queries) GetDonorIndividualTrees(ctx context.Context, arg GetDonorIndividualTreesParams) ([]GetDonorIndividualTreesRow, error) {
+	rows, err := q.db.Query(ctx, getDonorIndividualTrees,
+		arg.SouthLat,
+		arg.NorthLat,
+		arg.WestLng,
+		arg.EastLng,
+		arg.DonorID,
+		arg.ResultLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetDonorIndividualTreesRow{}
+	for rows.Next() {
+		var i GetDonorIndividualTreesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectCode,
+			&i.TreeNumber,
+			&i.DonorID,
+			&i.Latitude,
+			&i.Longitude,
+			&i.PlantedAt,
+			&i.CreatedAt,
+			&i.Metadata,
+			&i.DonorName,
+			&i.ProjectName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getDonorTreesByGridCluster = `-- name: GetDonorTreesByGridCluster :many
+WITH params AS (
+    SELECT 
+        $2::float8 as grid_size,
+        $3::float8 as west_lng,
+        $4::float8 as south_lat,
+        $5::float8 as east_lng,
+        $6::float8 as north_lat
+)
+SELECT 
+    ST_Y(ST_SnapToGrid(t.tree_location::geometry, p.grid_size, p.grid_size))::FLOAT as grid_lat,
+    ST_X(ST_SnapToGrid(t.tree_location::geometry, p.grid_size, p.grid_size))::FLOAT as grid_lng,
+    COUNT(*) as tree_count,
+    ARRAY_AGG(t.id)::VARCHAR[] as tree_ids
+FROM core.tree t
+CROSS JOIN params p
+WHERE t.tree_location && ST_MakeEnvelope(p.west_lng, p.south_lat, p.east_lng, p.north_lat, 4326)::geography
+    AND t.donor_id = $1::CHAR(21)
+GROUP BY ST_SnapToGrid(t.tree_location::geometry, p.grid_size, p.grid_size)
+HAVING COUNT(*) > 0
+`
+
+type GetDonorTreesByGridClusterParams struct {
+	DonorID  string  `json:"donor_id"`
+	GridSize float64 `json:"grid_size"`
+	WestLng  float64 `json:"west_lng"`
+	SouthLat float64 `json:"south_lat"`
+	EastLng  float64 `json:"east_lng"`
+	NorthLat float64 `json:"north_lat"`
+}
+
+type GetDonorTreesByGridClusterRow struct {
+	GridLat   float64  `json:"grid_lat"`
+	GridLng   float64  `json:"grid_lng"`
+	TreeCount int64    `json:"tree_count"`
+	TreeIds   []string `json:"tree_ids"`
+}
+
+// Zoom levels 9-12: Grid-based clustering for medium zoom
+func (q *Queries) GetDonorTreesByGridCluster(ctx context.Context, arg GetDonorTreesByGridClusterParams) ([]GetDonorTreesByGridClusterRow, error) {
+	rows, err := q.db.Query(ctx, getDonorTreesByGridCluster,
+		arg.DonorID,
+		arg.GridSize,
+		arg.WestLng,
+		arg.SouthLat,
+		arg.EastLng,
+		arg.NorthLat,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetDonorTreesByGridClusterRow{}
+	for rows.Next() {
+		var i GetDonorTreesByGridClusterRow
+		if err := rows.Scan(
+			&i.GridLat,
+			&i.GridLng,
+			&i.TreeCount,
+			&i.TreeIds,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getDonorTreesByProjectCluster = `-- name: GetDonorTreesByProjectCluster :many
+SELECT 
+    t.project_code,
+    tw.project_name,
+    COUNT(*) as tree_count,
+    AVG(ST_Y(t.tree_location::geometry))::FLOAT as center_lat,
+    AVG(ST_X(t.tree_location::geometry))::FLOAT as center_lng
+FROM core.tree t
+JOIN core.project tw ON t.project_code = tw.project_code
+WHERE ST_Y(t.tree_location::geometry) BETWEEN $1 AND $2
+  AND ST_X(t.tree_location::geometry) BETWEEN $3 AND $4
+  AND t.donor_id = $5
+GROUP BY t.project_code, tw.project_name
+`
+
+type GetDonorTreesByProjectClusterParams struct {
+	SouthLat interface{} `json:"south_lat"`
+	NorthLat interface{} `json:"north_lat"`
+	WestLng  interface{} `json:"west_lng"`
+	EastLng  interface{} `json:"east_lng"`
+	DonorID  string      `json:"donor_id"`
+}
+
+type GetDonorTreesByProjectClusterRow struct {
+	ProjectCode string  `json:"project_code"`
+	ProjectName string  `json:"project_name"`
+	TreeCount   int64   `json:"tree_count"`
+	CenterLat   float64 `json:"center_lat"`
+	CenterLng   float64 `json:"center_lng"`
+}
+
+// Zoom levels 1-8: Get tree counts grouped by project
+func (q *Queries) GetDonorTreesByProjectCluster(ctx context.Context, arg GetDonorTreesByProjectClusterParams) ([]GetDonorTreesByProjectClusterRow, error) {
+	rows, err := q.db.Query(ctx, getDonorTreesByProjectCluster,
+		arg.SouthLat,
+		arg.NorthLat,
+		arg.WestLng,
+		arg.EastLng,
+		arg.DonorID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetDonorTreesByProjectClusterRow{}
+	for rows.Next() {
+		var i GetDonorTreesByProjectClusterRow
+		if err := rows.Scan(
+			&i.ProjectCode,
+			&i.ProjectName,
+			&i.TreeCount,
+			&i.CenterLat,
+			&i.CenterLng,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getIndividualTrees = `-- name: GetIndividualTrees :many
+SELECT 
+    t.id,
+    t.project_code,
+    t.tree_number,
+    t.donor_id,
+    ST_Y(t.tree_location::geometry)::FLOAT as latitude,
+    ST_X(t.tree_location::geometry)::FLOAT as longitude,
+    t.planted_at,
+    t.created_at,
+    t.metadata,
+    d.donor_name,
+    tw.project_name
+FROM core.tree t
+JOIN core.donor d ON t.donor_id = d.id
+JOIN core.project tw ON t.project_code = tw.project_code
 WHERE ST_Y(t.tree_location::geometry) BETWEEN $1 AND $2
   AND ST_X(t.tree_location::geometry) BETWEEN $3 AND $4
 LIMIT $5
@@ -146,17 +419,17 @@ type GetIndividualTreesParams struct {
 }
 
 type GetIndividualTreesRow struct {
-	ID         string             `json:"id"`
-	TownCode   string             `json:"town_code"`
-	TreeNumber int32              `json:"tree_number"`
-	DonorID    string             `json:"donor_id"`
-	Latitude   float64            `json:"latitude"`
-	Longitude  float64            `json:"longitude"`
-	PlantedAt  pgtype.Timestamptz `json:"planted_at"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	Metadata   []byte             `json:"metadata"`
-	DonorName  string             `json:"donor_name"`
-	TownName   string             `json:"town_name"`
+	ID          string             `json:"id"`
+	ProjectCode string             `json:"project_code"`
+	TreeNumber  int32              `json:"tree_number"`
+	DonorID     string             `json:"donor_id"`
+	Latitude    float64            `json:"latitude"`
+	Longitude   float64            `json:"longitude"`
+	PlantedAt   pgtype.Timestamptz `json:"planted_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	Metadata    []byte             `json:"metadata"`
+	DonorName   string             `json:"donor_name"`
+	ProjectName string             `json:"project_name"`
 }
 
 // Zoom levels 13+: Return individual trees with details
@@ -177,7 +450,7 @@ func (q *Queries) GetIndividualTrees(ctx context.Context, arg GetIndividualTrees
 		var i GetIndividualTreesRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.TownCode,
+			&i.ProjectCode,
 			&i.TreeNumber,
 			&i.DonorID,
 			&i.Latitude,
@@ -186,7 +459,7 @@ func (q *Queries) GetIndividualTrees(ctx context.Context, arg GetIndividualTrees
 			&i.CreatedAt,
 			&i.Metadata,
 			&i.DonorName,
-			&i.TownName,
+			&i.ProjectName,
 		); err != nil {
 			return nil, err
 		}
@@ -201,7 +474,7 @@ func (q *Queries) GetIndividualTrees(ctx context.Context, arg GetIndividualTrees
 const getTreeByID = `-- name: GetTreeByID :one
 SELECT 
     t.id,
-    t.town_code,
+    t.project_code,
     t.tree_number,
     t.donor_id,
     ST_Y(t.tree_location::geometry)::FLOAT as latitude,
@@ -210,29 +483,29 @@ SELECT
     t.created_at,
     t.metadata,
     d.donor_name,
-    d.email as donor_email,
-    tw.town_name,
-    tw.metadata as town_metadata
+    d.phone_number as donor_phone_number,
+    tw.project_name,
+    tw.metadata as project_metadata
 FROM core.tree t
 JOIN core.donor d ON t.donor_id = d.id
-JOIN core.town tw ON t.town_code = tw.town_code
+JOIN core.project tw ON t.project_code = tw.project_code
 WHERE t.id = $1
 `
 
 type GetTreeByIDRow struct {
-	ID           string             `json:"id"`
-	TownCode     string             `json:"town_code"`
-	TreeNumber   int32              `json:"tree_number"`
-	DonorID      string             `json:"donor_id"`
-	Latitude     float64            `json:"latitude"`
-	Longitude    float64            `json:"longitude"`
-	PlantedAt    pgtype.Timestamptz `json:"planted_at"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	Metadata     []byte             `json:"metadata"`
-	DonorName    string             `json:"donor_name"`
-	DonorEmail   string             `json:"donor_email"`
-	TownName     string             `json:"town_name"`
-	TownMetadata []byte             `json:"town_metadata"`
+	ID               string             `json:"id"`
+	ProjectCode      string             `json:"project_code"`
+	TreeNumber       int32              `json:"tree_number"`
+	DonorID          string             `json:"donor_id"`
+	Latitude         float64            `json:"latitude"`
+	Longitude        float64            `json:"longitude"`
+	PlantedAt        pgtype.Timestamptz `json:"planted_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	Metadata         []byte             `json:"metadata"`
+	DonorName        string             `json:"donor_name"`
+	DonorPhoneNumber string             `json:"donor_phone_number"`
+	ProjectName      string             `json:"project_name"`
+	ProjectMetadata  []byte             `json:"project_metadata"`
 }
 
 // Get a single tree by ID with full details
@@ -241,7 +514,7 @@ func (q *Queries) GetTreeByID(ctx context.Context, id string) (GetTreeByIDRow, e
 	var i GetTreeByIDRow
 	err := row.Scan(
 		&i.ID,
-		&i.TownCode,
+		&i.ProjectCode,
 		&i.TreeNumber,
 		&i.DonorID,
 		&i.Latitude,
@@ -250,9 +523,9 @@ func (q *Queries) GetTreeByID(ctx context.Context, id string) (GetTreeByIDRow, e
 		&i.CreatedAt,
 		&i.Metadata,
 		&i.DonorName,
-		&i.DonorEmail,
-		&i.TownName,
-		&i.TownMetadata,
+		&i.DonorPhoneNumber,
+		&i.ProjectName,
+		&i.ProjectMetadata,
 	)
 	return i, err
 }
@@ -260,10 +533,10 @@ func (q *Queries) GetTreeByID(ctx context.Context, id string) (GetTreeByIDRow, e
 const getTreeCount = `-- name: GetTreeCount :one
 SELECT COUNT(*) as total
 FROM core.tree t
-WHERE ($1::CHAR(2) IS NULL OR t.town_code = $1)
+WHERE ($1::CHAR(2) IS NULL OR t.project_code = $1)
 `
 
-// Get total tree count, optionally filtered by town
+// Get total tree count, optionally filtered by project
 func (q *Queries) GetTreeCount(ctx context.Context, dollar_1 string) (int64, error) {
 	row := q.db.QueryRow(ctx, getTreeCount, dollar_1)
 	var total int64
@@ -339,38 +612,38 @@ func (q *Queries) GetTreesByGridCluster(ctx context.Context, arg GetTreesByGridC
 	return items, nil
 }
 
-const getTreesByTownCluster = `-- name: GetTreesByTownCluster :many
+const getTreesByProjectCluster = `-- name: GetTreesByProjectCluster :many
 SELECT 
-    t.town_code,
-    tw.town_name,
+    t.project_code,
+    tw.project_name,
     COUNT(*) as tree_count,
     AVG(ST_Y(t.tree_location::geometry))::FLOAT as center_lat,
     AVG(ST_X(t.tree_location::geometry))::FLOAT as center_lng
 FROM core.tree t
-JOIN core.town tw ON t.town_code = tw.town_code
+JOIN core.project tw ON t.project_code = tw.project_code
 WHERE ST_Y(t.tree_location::geometry) BETWEEN $1 AND $2
   AND ST_X(t.tree_location::geometry) BETWEEN $3 AND $4
-GROUP BY t.town_code, tw.town_name
+GROUP BY t.project_code, tw.project_name
 `
 
-type GetTreesByTownClusterParams struct {
+type GetTreesByProjectClusterParams struct {
 	SouthLat interface{} `json:"south_lat"`
 	NorthLat interface{} `json:"north_lat"`
 	WestLng  interface{} `json:"west_lng"`
 	EastLng  interface{} `json:"east_lng"`
 }
 
-type GetTreesByTownClusterRow struct {
-	TownCode  string  `json:"town_code"`
-	TownName  string  `json:"town_name"`
-	TreeCount int64   `json:"tree_count"`
-	CenterLat float64 `json:"center_lat"`
-	CenterLng float64 `json:"center_lng"`
+type GetTreesByProjectClusterRow struct {
+	ProjectCode string  `json:"project_code"`
+	ProjectName string  `json:"project_name"`
+	TreeCount   int64   `json:"tree_count"`
+	CenterLat   float64 `json:"center_lat"`
+	CenterLng   float64 `json:"center_lng"`
 }
 
-// Zoom levels 1-8: Get tree counts grouped by town
-func (q *Queries) GetTreesByTownCluster(ctx context.Context, arg GetTreesByTownClusterParams) ([]GetTreesByTownClusterRow, error) {
-	rows, err := q.db.Query(ctx, getTreesByTownCluster,
+// Zoom levels 1-8: Get tree counts grouped by project
+func (q *Queries) GetTreesByProjectCluster(ctx context.Context, arg GetTreesByProjectClusterParams) ([]GetTreesByProjectClusterRow, error) {
+	rows, err := q.db.Query(ctx, getTreesByProjectCluster,
 		arg.SouthLat,
 		arg.NorthLat,
 		arg.WestLng,
@@ -380,12 +653,12 @@ func (q *Queries) GetTreesByTownCluster(ctx context.Context, arg GetTreesByTownC
 		return nil, err
 	}
 	defer rows.Close()
-	items := []GetTreesByTownClusterRow{}
+	items := []GetTreesByProjectClusterRow{}
 	for rows.Next() {
-		var i GetTreesByTownClusterRow
+		var i GetTreesByProjectClusterRow
 		if err := rows.Scan(
-			&i.TownCode,
-			&i.TownName,
+			&i.ProjectCode,
+			&i.ProjectName,
 			&i.TreeCount,
 			&i.CenterLat,
 			&i.CenterLng,
@@ -400,7 +673,7 @@ func (q *Queries) GetTreesByTownCluster(ctx context.Context, arg GetTreesByTownC
 	return items, nil
 }
 
-const getTreesByTownCode = `-- name: GetTreesByTownCode :many
+const getTreesByProjectCode = `-- name: GetTreesByProjectCode :many
 SELECT 
     t.id,
     t.tree_number,
@@ -411,11 +684,11 @@ SELECT
     d.donor_name
 FROM core.tree t
 JOIN core.donor d ON t.donor_id = d.id
-WHERE t.town_code = $1
+WHERE t.project_code = $1
 ORDER BY t.tree_number
 `
 
-type GetTreesByTownCodeRow struct {
+type GetTreesByProjectCodeRow struct {
 	ID         string             `json:"id"`
 	TreeNumber int32              `json:"tree_number"`
 	Latitude   float64            `json:"latitude"`
@@ -425,16 +698,16 @@ type GetTreesByTownCodeRow struct {
 	DonorName  string             `json:"donor_name"`
 }
 
-// Get all trees in a specific town
-func (q *Queries) GetTreesByTownCode(ctx context.Context, townCode string) ([]GetTreesByTownCodeRow, error) {
-	rows, err := q.db.Query(ctx, getTreesByTownCode, townCode)
+// Get all trees in a specific project
+func (q *Queries) GetTreesByProjectCode(ctx context.Context, projectCode string) ([]GetTreesByProjectCodeRow, error) {
+	rows, err := q.db.Query(ctx, getTreesByProjectCode, projectCode)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []GetTreesByTownCodeRow{}
+	items := []GetTreesByProjectCodeRow{}
 	for rows.Next() {
-		var i GetTreesByTownCodeRow
+		var i GetTreesByProjectCodeRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.TreeNumber,

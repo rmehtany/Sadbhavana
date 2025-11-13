@@ -7,8 +7,8 @@ import (
 
 type TreeDetail struct {
 	ID          string
-	TownCode    string
-	TownName    string
+	ProjectCode    string
+	ProjectName    string
 	TreeNumber  int32
 	DonorName   string
 	Latitude    float64
@@ -21,13 +21,13 @@ type TreeDetail struct {
 templ TreeDetailPanel(tree *TreeDetail) {
 	<div class="detail-panel">
 		<button id="close-detail" onclick="closeDetailPanel()">&times;</button>
-		<h3>Tree #{ fmt.Sprintf("%d", tree.TreeNumber) } - { tree.TownName }</h3>
+		<h3>Tree #{ fmt.Sprintf("%d", tree.TreeNumber) } - { tree.ProjectName }</h3>
 		<dl>
 			<dt>Tree ID:</dt>
 			<dd>{ tree.ID }</dd>
 			
-			<dt>Town:</dt>
-			<dd>{ tree.TownName } ({ tree.TownCode })</dd>
+			<dt>Project:</dt>
+			<dd>{ tree.ProjectName } ({ tree.ProjectCode })</dd>
 			
 			<dt>Donor:</dt>
 			<dd>{ tree.DonorName }</dd>
@@ -61,10 +61,10 @@ templ TreeDetailPanel(tree *TreeDetail) {
 		</button>
 		
 		<button 
-			class="btn zoom-to-town"
-			data-town-code={ tree.TownCode }
+			class="btn zoom-to-project"
+			data-project-code={ tree.ProjectCode }
 		>
-			Zoom Out to Town
+			Zoom Out to Project
 		</button>
 	</div>
 }

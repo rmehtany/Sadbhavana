@@ -20,18 +20,19 @@ type GetTreeDetailInput struct {
 	ID string `path:"id" minLength:"21" maxLength:"21" pattern:"^TRE_[A-Za-z0-9_-]{17}$"`
 }
 
-// GetClusterDetailInput defines the town code parameter
+// GetClusterDetailInput defines the project code parameter
 type GetClusterDetailInput struct {
-	TownCode string `path:"townCode" minLength:"2" maxLength:"2"`
+	ProjectCode string `path:"projectCode" minLength:"2" maxLength:"2"`
+	DonorID     string `query:"donorId,omitempty"`
 }
 
 // MarkerType represents the type of marker being returned
 type MarkerType string
 
 const (
-	MarkerTypeTownCluster MarkerType = "town-cluster"
-	MarkerTypeGridCluster MarkerType = "grid-cluster"
-	MarkerTypeTree        MarkerType = "tree"
+	MarkerTypeProjectCluster MarkerType = "project-cluster"
+	MarkerTypeGridCluster    MarkerType = "grid-cluster"
+	MarkerTypeTree           MarkerType = "tree"
 )
 
 // Marker represents a unified marker structure for all zoom levels
@@ -40,37 +41,37 @@ type Marker struct {
 	Lat     float64    `json:"lat"`
 	Lng     float64    `json:"lng"`
 	Count   int64      `json:"count,omitempty"`   // For clusters
-	ID      string     `json:"id,omitempty"`      // For trees or town code
+	ID      string     `json:"id,omitempty"`      // For trees or project code
 	Label   string     `json:"label,omitempty"`   // Display name
 	TreeIDs []string   `json:"treeIds,omitempty"` // For grid clusters
 }
 
 // TreeDetail represents detailed information about a single tree
 type TreeDetail struct {
-	ID         string                 `json:"id"`
-	TownCode   string                 `json:"townCode"`
-	TownName   string                 `json:"townName"`
-	TreeNumber int32                  `json:"treeNumber"`
-	DonorID    string                 `json:"donorId"`
-	DonorName  string                 `json:"donorName"`
-	Latitude   float64                `json:"latitude"`
-	Longitude  float64                `json:"longitude"`
-	PlantedAt  *time.Time             `json:"plantedAt,omitempty"`
-	CreatedAt  *time.Time             `json:"createdAt,omitempty"`
-	Metadata   map[string]interface{} `json:"metadata"`
+	ID          string                 `json:"id"`
+	ProjectCode string                 `json:"projectCode"`
+	ProjectName string                 `json:"projectName"`
+	TreeNumber  int32                  `json:"treeNumber"`
+	DonorID     string                 `json:"donorId"`
+	DonorName   string                 `json:"donorName"`
+	Latitude    float64                `json:"latitude"`
+	Longitude   float64                `json:"longitude"`
+	PlantedAt   *time.Time             `json:"plantedAt,omitempty"`
+	CreatedAt   *time.Time             `json:"createdAt,omitempty"`
+	Metadata    map[string]interface{} `json:"metadata"`
 }
 
-// ClusterDetail represents detailed information about a town cluster
+// ClusterDetail represents detailed information about a project cluster
 type ClusterDetail struct {
-	TownCode     string                 `json:"townCode"`
-	TownName     string                 `json:"townName"`
-	TreeCount    int64                  `json:"treeCount"`
-	CenterLat    float64                `json:"centerLat"`
-	CenterLng    float64                `json:"centerLng"`
-	FirstPlanted *time.Time             `json:"firstPlanted,omitempty"`
-	LastPlanted  *time.Time             `json:"lastPlanted,omitempty"`
-	UniqueDonors int64                  `json:"uniqueDonors"`
-	TownMetadata map[string]interface{} `json:"townMetadata"`
+	ProjectCode     string                 `json:"projectCode"`
+	ProjectName     string                 `json:"projectName"`
+	TreeCount       int64                  `json:"treeCount"`
+	CenterLat       float64                `json:"centerLat"`
+	CenterLng       float64                `json:"centerLng"`
+	FirstPlanted    *time.Time             `json:"firstPlanted,omitempty"`
+	LastPlanted     *time.Time             `json:"lastPlanted,omitempty"`
+	UniqueDonors    int64                  `json:"uniqueDonors"`
+	ProjectMetadata map[string]interface{} `json:"projectMetadata"`
 }
 
 // MarkersResponse wraps the markers array for HTML rendering

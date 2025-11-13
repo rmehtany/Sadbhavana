@@ -5,19 +5,19 @@ package template
 
 //lint:file-ignore SA4006 This context is only used if a nested component is present.
 
-import "github.com/a-h/templ"
-import templruntime "github.com/a-h/templ/runtime"
-
 import (
 	"fmt"
+
+	"github.com/a-h/templ"
+	templruntime "github.com/a-h/templ/runtime"
 )
 
 type MarkerType string
 
 const (
-	MarkerTypeTownCluster MarkerType = "town-cluster"
-	MarkerTypeGridCluster MarkerType = "grid-cluster"
-	MarkerTypeTree        MarkerType = "tree"
+	MarkerTypeProjectCluster MarkerType = "project-cluster"
+	MarkerTypeGridCluster    MarkerType = "grid-cluster"
+	MarkerTypeTree           MarkerType = "tree"
 )
 
 type Marker struct {
@@ -156,7 +156,7 @@ func MarkerContainer(markers []Marker) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			if marker.Type == MarkerTypeTownCluster {
+			if marker.Type == MarkerTypeProjectCluster {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, " hx-get=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err

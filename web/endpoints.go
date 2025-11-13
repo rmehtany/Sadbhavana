@@ -54,11 +54,11 @@ func RegisterHandlers(api huma.API) error {
 	huma.Register(api, huma.Operation{
 		OperationID: "get-cluster-detail",
 		Method:      http.MethodGet,
-		Path:        "/api/cluster/{townCode}",
+		Path:        "/api/cluster/{projectCode}",
 		Summary:     "Get cluster details",
 		Tags:        []string{"clusters"},
 	}, func(ctx context.Context, input *GetClusterDetailInput) (*html.HTMLResponse, error) {
-		cluster, err := handlers.GetClusterDetail(ctx, input.TownCode)
+		cluster, err := handlers.GetClusterDetail(ctx, input.ProjectCode, input.DonorID)
 		if err != nil {
 			return nil, huma.Error404NotFound("Cluster not found", err)
 		}
@@ -69,11 +69,11 @@ func RegisterHandlers(api huma.API) error {
 	huma.Register(api, huma.Operation{
 		OperationID: "get-cluster-detail-raw",
 		Method:      http.MethodGet,
-		Path:        "/api/cluster/{townCode}/raw",
+		Path:        "/api/cluster/{projectCode}/raw",
 		Summary:     "Get raw cluster details",
 		Tags:        []string{"clusters"},
 	}, func(ctx context.Context, input *GetClusterDetailInput) (*ClusterDetailRawResponse, error) {
-		cluster, err := handlers.GetClusterDetail(ctx, input.TownCode)
+		cluster, err := handlers.GetClusterDetail(ctx, input.ProjectCode, input.DonorID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get cluster detail: %w", err)
 		}

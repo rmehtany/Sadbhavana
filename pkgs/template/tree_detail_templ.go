@@ -5,25 +5,25 @@ package template
 
 //lint:file-ignore SA4006 This context is only used if a nested component is present.
 
-import "github.com/a-h/templ"
-import templruntime "github.com/a-h/templ/runtime"
-
 import (
 	"fmt"
 	"time"
+
+	"github.com/a-h/templ"
+	templruntime "github.com/a-h/templ/runtime"
 )
 
 type TreeDetail struct {
-	ID         string
-	TownCode   string
-	TownName   string
-	TreeNumber int32
-	DonorName  string
-	Latitude   float64
-	Longitude  float64
-	PlantedAt  time.Time
-	CreatedAt  time.Time
-	Metadata   map[string]interface{}
+	ID          string
+	ProjectCode string
+	ProjectName string
+	TreeNumber  int32
+	DonorName   string
+	Latitude    float64
+	Longitude   float64
+	PlantedAt   time.Time
+	CreatedAt   time.Time
+	Metadata    map[string]interface{}
 }
 
 func TreeDetailPanel(tree *TreeDetail) templ.Component {
@@ -65,7 +65,7 @@ func TreeDetailPanel(tree *TreeDetail) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var3 string
-		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(tree.TownName)
+		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(tree.ProjectName)
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkgs/template/tree_detail.templ`, Line: 24, Col: 68}
 		}
@@ -86,12 +86,12 @@ func TreeDetailPanel(tree *TreeDetail) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</dd><dt>Town:</dt><dd>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</dd><dt>Project:</dt><dd>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var5 string
-		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(tree.TownName)
+		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(tree.ProjectName)
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkgs/template/tree_detail.templ`, Line: 30, Col: 22}
 		}
@@ -104,7 +104,7 @@ func TreeDetailPanel(tree *TreeDetail) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var6 string
-		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(tree.TownCode)
+		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(tree.ProjectCode)
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkgs/template/tree_detail.templ`, Line: 30, Col: 41}
 		}
@@ -236,12 +236,12 @@ func TreeDetailPanel(tree *TreeDetail) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" data-zoom=\"16\">Zoom to Tree</button> <button class=\"btn zoom-to-town\" data-town-code=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\" data-zoom=\"16\">Zoom to Tree</button> <button class=\"btn zoom-to-project\" data-project-code=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var15 string
-		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(tree.TownCode)
+		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(tree.ProjectCode)
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkgs/template/tree_detail.templ`, Line: 65, Col: 33}
 		}
@@ -249,7 +249,7 @@ func TreeDetailPanel(tree *TreeDetail) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\">Zoom Out to Town</button></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\">Zoom Out to Project</button></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

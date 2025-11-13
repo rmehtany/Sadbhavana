@@ -45,7 +45,7 @@ func main() {
 	router.Handle("/static/*", http.StripPrefix("/static/", fs))
 
 	// Serve index.html at root
-	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/map", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "./static/index.html")
 	})
 

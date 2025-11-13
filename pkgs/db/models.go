@@ -9,9 +9,9 @@ import (
 )
 
 type CoreDonor struct {
-	ID        string `json:"id"`
-	DonorName string `json:"donor_name"`
-	Email     string `json:"email"`
+	ID          string `json:"id"`
+	DonorName   string `json:"donor_name"`
+	PhoneNumber string `json:"phone_number"`
 }
 
 type CoreFile struct {
@@ -24,15 +24,15 @@ type CoreFile struct {
 	FileExpiration pgtype.Timestamptz `json:"file_expiration"`
 }
 
-type CoreTown struct {
-	TownName string `json:"town_name"`
-	Metadata []byte `json:"metadata"`
-	TownCode string `json:"town_code"`
+type CoreProject struct {
+	ProjectName string `json:"project_name"`
+	Metadata    []byte `json:"metadata"`
+	ProjectCode string `json:"project_code"`
 }
 
 type CoreTree struct {
 	ID           string             `json:"id"`
-	TownCode     string             `json:"town_code"`
+	ProjectCode  string             `json:"project_code"`
 	TreeNumber   int32              `json:"tree_number"`
 	DonorID      string             `json:"donor_id"`
 	TreeLocation interface{}        `json:"tree_location"`

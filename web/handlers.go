@@ -25,7 +25,7 @@ func (h *Handlers) GetMarkers(ctx context.Context, input *GetMarkersInput) ([]te
 	var err error
 
 	if input.Zoom <= 8 {
-		markers, err = h.getTownClusterMarkers(ctx, input)
+		markers, err = h.getProjectClusterMarkers(ctx, input)
 	} else if input.Zoom <= 12 {
 		markers, err = h.getGridClusterMarkers(ctx, input)
 	} else {
@@ -39,27 +39,53 @@ func (h *Handlers) GetMarkers(ctx context.Context, input *GetMarkersInput) ([]te
 	return markers, nil
 }
 
-func (h *Handlers) getTownClusterMarkers(ctx context.Context, input *GetMarkersInput) ([]template.Marker, error) {
-	rows, err := h.queries.GetTreesByTownCluster(ctx, db.GetTreesByTownClusterParams{
-		SouthLat: input.South,
-		NorthLat: input.North,
-		WestLng:  input.West,
-		EastLng:  input.East,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	markers := make([]template.Marker, 0, len(rows))
-	for _, row := range rows {
-		markers = append(markers, template.Marker{
-			Type:  template.MarkerTypeTownCluster,
-			Lat:   row.CenterLat,
-			Lng:   row.CenterLng,
-			Count: row.TreeCount,
-			ID:    row.TownCode,
-			Label: row.TownName,
+func (h *Handlers) getProjectClusterMarkers(ctx context.Context, input *GetMarkersInput) ([]template.Marker, error) {
+	var markers []template.Marker
+	if input.DonorID == "" {
+		rows, err := h.queries.GetTreesByProjectCluster(ctx, db.GetTreesByProjectClusterParams{
+			SouthLat: input.South,
+			NorthLat: input.North,
+			WestLng:  input.West,
+			EastLng:  input.East,
 		})
+		if err != nil {
+			return nil, err
+		}
+
+		markers = make([]template.Marker, 0, len(rows))
+		for _, row := range rows {
+			markers = append(markers, template.Marker{
+				Type:  template.MarkerTypeProjectCluster,
+				Lat:   row.CenterLat,
+				Lng:   row.CenterLng,
+				Count: row.TreeCount,
+				ID:    row.ProjectCode,
+				Label: row.ProjectName,
+			})
+		}
+	} else {
+		rows, err := h.queries.GetDonorTreesByProjectCluster(ctx, db.GetDonorTreesByProjectClusterParams{
+			SouthLat: input.South,
+			NorthLat: input.North,
+			WestLng:  input.West,
+			EastLng:  input.East,
+			DonorID:  input.DonorID,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		markers = make([]template.Marker, 0, len(rows))
+		for _, row := range rows {
+			markers = append(markers, template.Marker{
+				Type:  template.MarkerTypeProjectCluster,
+				Lat:   row.CenterLat,
+				Lng:   row.CenterLng,
+				Count: row.TreeCount,
+				ID:    row.ProjectCode,
+				Label: row.ProjectName,
+			})
+		}
 	}
 
 	return markers, nil
@@ -68,26 +94,51 @@ func (h *Handlers) getTownClusterMarkers(ctx context.Context, input *GetMarkersI
 func (h *Handlers) getGridClusterMarkers(ctx context.Context, input *GetMarkersInput) ([]template.Marker, error) {
 	gridSize := calculateGridSize(input.Zoom)
 
-	rows, err := h.queries.GetTreesByGridCluster(ctx, db.GetTreesByGridClusterParams{
-		SouthLat: input.South,
-		NorthLat: input.North,
-		WestLng:  input.West,
-		EastLng:  input.East,
-		GridSize: gridSize,
-	})
-	if err != nil {
-		return nil, err
-	}
+	var markers []template.Marker
 
-	markers := make([]template.Marker, 0, len(rows))
-	for _, row := range rows {
-		markers = append(markers, template.Marker{
-			Type:    template.MarkerTypeGridCluster,
-			Lat:     row.GridLat,
-			Lng:     row.GridLng,
-			Count:   row.TreeCount,
-			TreeIDs: row.TreeIds,
+	if input.DonorID == "" {
+		rows, err := h.queries.GetTreesByGridCluster(ctx, db.GetTreesByGridClusterParams{
+			SouthLat: input.South,
+			NorthLat: input.North,
+			WestLng:  input.West,
+			EastLng:  input.East,
+			GridSize: gridSize,
 		})
+		if err != nil {
+			return nil, err
+		}
+		markers = make([]template.Marker, 0, len(rows))
+		for _, row := range rows {
+			markers = append(markers, template.Marker{
+				Type:    template.MarkerTypeGridCluster,
+				Lat:     row.GridLat,
+				Lng:     row.GridLng,
+				Count:   row.TreeCount,
+				TreeIDs: row.TreeIds,
+			})
+		}
+	} else {
+		rows, err := h.queries.GetDonorTreesByGridCluster(ctx, db.GetDonorTreesByGridClusterParams{
+			SouthLat: input.South,
+			NorthLat: input.North,
+			WestLng:  input.West,
+			EastLng:  input.East,
+			GridSize: gridSize,
+			DonorID:  input.DonorID,
+		})
+		if err != nil {
+			return nil, err
+		}
+		markers = make([]template.Marker, 0, len(rows))
+		for _, row := range rows {
+			markers = append(markers, template.Marker{
+				Type:    template.MarkerTypeGridCluster,
+				Lat:     row.GridLat,
+				Lng:     row.GridLng,
+				Count:   row.TreeCount,
+				TreeIDs: row.TreeIds,
+			})
+		}
 	}
 
 	return markers, nil
@@ -112,7 +163,7 @@ func (h *Handlers) getIndividualTreeMarkers(ctx context.Context, input *GetMarke
 			Lat:   tree.Latitude,
 			Lng:   tree.Longitude,
 			ID:    tree.ID,
-			Label: fmt.Sprintf("Tree #%d - %s", tree.TreeNumber, tree.TownName),
+			Label: fmt.Sprintf("Tree #%d - %s", tree.TreeNumber, tree.ProjectName),
 		})
 	}
 
@@ -131,14 +182,14 @@ func (h *Handlers) GetTreeDetail(ctx context.Context, treeID string) (*template.
 	}
 
 	output := template.TreeDetail{
-		ID:         tree.ID,
-		TownCode:   tree.TownCode,
-		TownName:   tree.TownName,
-		TreeNumber: tree.TreeNumber,
-		DonorName:  tree.DonorName,
-		Latitude:   tree.Latitude,
-		Longitude:  tree.Longitude,
-		Metadata:   metadata,
+		ID:          tree.ID,
+		ProjectCode: tree.ProjectCode,
+		ProjectName: tree.ProjectName,
+		TreeNumber:  tree.TreeNumber,
+		DonorName:   tree.DonorName,
+		Latitude:    tree.Latitude,
+		Longitude:   tree.Longitude,
+		Metadata:    metadata,
 	}
 	if tree.PlantedAt.Valid {
 		output.PlantedAt = tree.PlantedAt.Time
@@ -150,36 +201,61 @@ func (h *Handlers) GetTreeDetail(ctx context.Context, treeID string) (*template.
 	return &output, nil
 }
 
-func (h *Handlers) GetClusterDetail(ctx context.Context, townCode string) (*template.ClusterDetail, error) {
-	cluster, err := h.queries.GetClusterDetail(ctx, townCode)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get cluster detail: %w", err)
-	}
+func (h *Handlers) GetClusterDetail(ctx context.Context, projectCode, donorID string) (*template.ClusterDetail, error) {
+	output := &template.ClusterDetail{}
+	if donorID == "" {
+		cluster, err := h.queries.GetClusterDetail(ctx, projectCode)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get cluster detail: %w", err)
+		}
 
-	var townMetadata map[string]interface{}
-	if cluster.TownMetadata != nil {
-		if err := json.Unmarshal(cluster.TownMetadata, &townMetadata); err != nil {
-			return nil, fmt.Errorf("failed to parse town metadata: %w", err)
+		if cluster.ProjectMetadata != nil {
+			err := json.Unmarshal(cluster.ProjectMetadata, &output.ProjectMetadata)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse project metadata: %w", err)
+			}
+		}
+		output.ProjectCode = cluster.ProjectCode
+		output.ProjectName = cluster.ProjectName
+		output.TreeCount = cluster.TreeCount
+		output.CenterLat = cluster.CenterLat
+		output.CenterLng = cluster.CenterLng
+		output.UniqueDonors = cluster.UniqueDonors
+		if cluster.FirstPlanted.Valid {
+			output.FirstPlanted = &cluster.FirstPlanted.Time
+		}
+		if cluster.LastPlanted.Valid {
+			output.LastPlanted = &cluster.LastPlanted.Time
+		}
+	} else {
+		cluster, err := h.queries.GetDonorClusterDetail(ctx, db.GetDonorClusterDetailParams{
+			ProjectCode: projectCode,
+			DonorID:     donorID,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to get cluster detail by donor: %w", err)
+		}
+		if cluster.ProjectMetadata != nil {
+			err := json.Unmarshal(cluster.ProjectMetadata, &output.ProjectMetadata)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse project metadata: %w", err)
+			}
+		}
+		output.ProjectCode = cluster.ProjectCode
+		output.ProjectName = cluster.ProjectName
+		output.TreeCount = cluster.TreeCount
+		output.CenterLat = cluster.CenterLat
+		output.CenterLng = cluster.CenterLng
+		output.UniqueDonors = cluster.UniqueDonors
+		if cluster.FirstPlanted.Valid {
+			output.FirstPlanted = &cluster.FirstPlanted.Time
+		}
+		if cluster.LastPlanted.Valid {
+			output.LastPlanted = &cluster.LastPlanted.Time
 		}
 	}
 
-	output := template.ClusterDetail{
-		TownCode:     cluster.TownCode,
-		TownName:     cluster.TownName,
-		TreeCount:    cluster.TreeCount,
-		CenterLat:    cluster.CenterLat,
-		CenterLng:    cluster.CenterLng,
-		UniqueDonors: cluster.UniqueDonors,
-		TownMetadata: townMetadata,
-	}
-	if cluster.FirstPlanted.Valid {
-		output.FirstPlanted = &cluster.FirstPlanted.Time
-	}
-	if cluster.LastPlanted.Valid {
-		output.LastPlanted = &cluster.LastPlanted.Time
-	}
-
-	return &output, nil
+	return output, nil
 }
 
 func calculateGridSize(zoom int) float64 {

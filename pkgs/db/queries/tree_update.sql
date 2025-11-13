@@ -76,13 +76,13 @@ SELECT
     tu.update_date,
     tu.file_id,
     t.tree_number,
-    t.town_code,
-    tw.town_name,
+    t.project_code,
+    tw.project_name,
     f.file_name,
     f.file_path
 FROM core.tree_update tu
 JOIN core.tree t ON tu.tree_id = t.id
-JOIN core.town tw ON t.town_code = tw.town_code
+JOIN core.project tw ON t.project_code = tw.project_code
 JOIN core.file f ON tu.file_id = f.id
 ORDER BY tu.update_date DESC
 LIMIT $1;
@@ -92,13 +92,13 @@ LIMIT $1;
 SELECT 
     t.id,
     t.tree_number,
-    t.town_code,
-    tw.town_name,
+    t.project_code,
+    tw.project_name,
     COUNT(tu.file_id) as update_count,
     MAX(tu.update_date) as last_updated
 FROM core.tree t
-JOIN core.town tw ON t.town_code = tw.town_code
+JOIN core.project tw ON t.project_code = tw.project_code
 LEFT JOIN core.tree_update tu ON t.id = tu.tree_id
-WHERE ($1::CHAR(2) IS NULL OR t.town_code = $1)
-GROUP BY t.id, t.tree_number, t.town_code, tw.town_name
+WHERE ($1::CHAR(2) IS NULL OR t.project_code = $1)
+GROUP BY t.id, t.tree_number, t.project_code, tw.project_name
 ORDER BY last_updated DESC NULLS LAST;
