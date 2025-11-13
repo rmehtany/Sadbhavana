@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tree Planting Map</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin="" />
+    
+    <!-- Application CSS -->
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <!-- Main application container -->
+    <div id="app-container">
+        <!-- Map takes up most of the screen -->
+        <div id="map"></div>
+        
+        <!-- Detail panel (hidden by default, slides in on marker click) -->
+        <div id="detail-panel">
+            <button id="close-detail" onclick="closeDetailPanel()">&times;</button>
+            <!-- Content loaded via HTMX -->
+        </div>
+    </div>
+    
+    <!-- Hidden container for marker data (populated by HTMX) -->
+    <div id="marker-container"></div>
+    
+    <!-- Loading indicator -->
+    <div id="loading">Loading markers...</div>
+    
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+    
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"
+            integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC"
+            crossorigin="anonymous"></script>
+    
+    <!-- Application JavaScript -->
+    <script src="/static/js/map.js"></script>
+</body>
+</html>

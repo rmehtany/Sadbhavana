@@ -1,0 +1,70 @@
+package template
+
+import (
+	"fmt"
+	"time"
+)
+
+type TreeDetail struct {
+	ID          string
+	TownCode    string
+	TownName    string
+	TreeNumber  int32
+	DonorName   string
+	Latitude    float64
+	Longitude   float64
+	PlantedAt   time.Time
+	CreatedAt   time.Time
+	Metadata    map[string]interface{}
+}
+
+templ TreeDetailPanel(tree *TreeDetail) {
+	<div class="detail-panel">
+		<button id="close-detail" onclick="closeDetailPanel()">&times;</button>
+		<h3>Tree #{ fmt.Sprintf("%d", tree.TreeNumber) } - { tree.TownName }</h3>
+		<dl>
+			<dt>Tree ID:</dt>
+			<dd>{ tree.ID }</dd>
+			
+			<dt>Town:</dt>
+			<dd>{ tree.TownName } ({ tree.TownCode })</dd>
+			
+			<dt>Donor:</dt>
+			<dd>{ tree.DonorName }</dd>
+			
+			<dt>Location:</dt>
+			<dd>{ fmt.Sprintf("%.6f, %.6f", tree.Latitude, tree.Longitude) }</dd>
+			
+			<dt>Planted:</dt>
+			<dd>{ tree.PlantedAt.Format("January 2, 2006") }</dd>
+			
+			<dt>Created:</dt>
+			<dd>{ tree.CreatedAt.Format("January 2, 2006 15:04:05") }</dd>
+			
+			if len(tree.Metadata) > 0 {
+				<dt>Additional Info:</dt>
+				<dd>
+					for key, value := range tree.Metadata {
+						<strong>{ key }:</strong> { fmt.Sprintf("%v", value) }<br/>
+					}
+				</dd>
+			}
+		</dl>
+		
+		<button 
+			class="btn zoom-to-location"
+			data-lat={ fmt.Sprintf("%.6f", tree.Latitude) }
+			data-lng={ fmt.Sprintf("%.6f", tree.Longitude) }
+			data-zoom="16"
+		>
+			Zoom to Tree
+		</button>
+		
+		<button 
+			class="btn zoom-to-town"
+			data-town-code={ tree.TownCode }
+		>
+			Zoom Out to Town
+		</button>
+	</div>
+}

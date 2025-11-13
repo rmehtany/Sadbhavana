@@ -1,0 +1,53 @@
+package template
+
+import (
+	"fmt"
+)
+
+type MarkerType string
+
+const (
+	MarkerTypeTownCluster MarkerType = "town-cluster"
+	MarkerTypeGridCluster MarkerType = "grid-cluster"
+	MarkerTypeTree        MarkerType = "tree"
+)
+
+type Marker struct {
+	Type    MarkerType
+	Lat     float64
+	Lng     float64
+	Count   int64
+	ID      string
+	Label   string
+	TreeIDs []string
+}
+
+templ MarkerContainer(markers []Marker) {
+	<div id="marker-container">
+		for _, marker := range markers {
+			<div 
+				class="marker-data"
+				data-type={ string(marker.Type) }
+				data-lat={ fmt.Sprintf("%.6f", marker.Lat) }
+				data-lng={ fmt.Sprintf("%.6f", marker.Lng) }
+				if marker.Count > 0 {
+					data-count={ fmt.Sprintf("%d", marker.Count) }
+				}
+				if marker.ID != "" {
+					data-id={ marker.ID }
+				}
+				if marker.Label != "" {
+					data-label={ marker.Label }
+				}
+				if marker.Type == MarkerTypeTownCluster {
+					hx-get={ fmt.Sprintf("/api/cluster/%s", marker.ID) }
+					hx-target="#detail-panel"
+				}
+				if marker.Type == MarkerTypeTree {
+					hx-get={ fmt.Sprintf("/api/tree/%s", marker.ID) }
+					hx-target="#detail-panel"
+				}
+			></div>
+		}
+	</div>
+}
