@@ -192,3 +192,31 @@ body {
   transform: scale(1.2);
 }
 
+.button-style {
+    /* Replicate standard button appearance */
+    display: inline-block;
+    padding: 6px 12px;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    cursor: pointer;
+    user-select: none;
+    background-image: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: #fff;                 /* White text */
+    background-color: #2596be;   /* Blue background */
+    border-color: #1f7aa0;       /* Slightly darker border */
+    text-decoration: none;       /* Remove underline */
+    margin-top: 10px;            /* Add spacing above */
+}
+
+/* Optional: Add hover/active states for better user experience */
+.button-style:hover {
+    background-color: #1f7aa0;   /* Darker blue on hover */
+    border-color: #186080;
+}
+
