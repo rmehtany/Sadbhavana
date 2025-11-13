@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math"
 
 	"sadbhavana/tree-project/pkgs/db"
@@ -42,7 +41,6 @@ func (h *Handlers) GetMarkers(ctx context.Context, input *GetMarkersInput) ([]te
 
 func (h *Handlers) getProjectClusterMarkers(ctx context.Context, input *GetMarkersInput) ([]template.Marker, error) {
 	var markers []template.Marker
-	log.Printf("DonorID: %s", input.DonorID)
 	if input.DonorID == "" {
 		rows, err := h.queries.GetTreesByProjectCluster(ctx, db.GetTreesByProjectClusterParams{
 			SouthLat: input.South,
@@ -98,8 +96,6 @@ func (h *Handlers) getGridClusterMarkers(ctx context.Context, input *GetMarkersI
 
 	var markers []template.Marker
 
-	log.Printf("DonorID: %s", input.DonorID)
-
 	if input.DonorID == "" {
 		rows, err := h.queries.GetTreesByGridCluster(ctx, db.GetTreesByGridClusterParams{
 			SouthLat: input.South,
@@ -150,7 +146,6 @@ func (h *Handlers) getGridClusterMarkers(ctx context.Context, input *GetMarkersI
 
 func (h *Handlers) getIndividualTreeMarkers(ctx context.Context, input *GetMarkersInput) ([]template.Marker, error) {
 	var markers []template.Marker
-	log.Printf("DonorID: %s", input.DonorID)
 	if input.DonorID == "" {
 		trees, err := h.queries.GetIndividualTrees(ctx, db.GetIndividualTreesParams{
 			SouthLat:    input.South,
