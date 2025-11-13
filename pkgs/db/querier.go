@@ -27,8 +27,6 @@ type Querier interface {
 	GetDonor(ctx context.Context, id string) (CoreDonor, error)
 	// Get a donor by phone_number
 	GetDonorByPhoneNumber(ctx context.Context, phoneNumber string) (CoreDonor, error)
-	// Get detailed statistics for a project cluster
-	GetDonorClusterDetail(ctx context.Context, arg GetDonorClusterDetailParams) (GetDonorClusterDetailRow, error)
 	// Zoom levels 13+: Return individual trees with details
 	GetDonorIndividualTrees(ctx context.Context, arg GetDonorIndividualTreesParams) ([]GetDonorIndividualTreesRow, error)
 	// Zoom levels 9-12: Grid-based clustering for medium zoom

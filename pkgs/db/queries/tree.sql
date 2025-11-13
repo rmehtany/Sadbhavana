@@ -185,21 +185,3 @@ FROM core.project tw
 LEFT JOIN core.tree t ON tw.project_code = t.project_code
 WHERE tw.project_code = sqlc.arg(project_code)
 GROUP BY tw.project_code, tw.project_name, tw.metadata;
-
--- name: GetDonorClusterDetail :one
--- Get detailed statistics for a project cluster
-SELECT 
-    tw.project_code,
-    tw.project_name,
-    tw.metadata as project_metadata,
-    COUNT(t.id) as tree_count,
-    AVG(ST_Y(t.tree_location::geometry))::FLOAT as center_lat,
-    AVG(ST_X(t.tree_location::geometry))::FLOAT as center_lng,
-    MIN(t.planted_at)::timestamptz as first_planted,
-    MAX(t.planted_at)::timestamptz as last_planted,
-    COUNT(DISTINCT t.donor_id) as unique_donors
-FROM core.project tw
-LEFT JOIN core.tree t ON tw.project_code = t.project_code
-WHERE tw.project_code = sqlc.arg(project_code)
-  AND t.donor_id = sqlc.arg(donor_id)
-GROUP BY tw.project_code, tw.project_name, tw.metadata;

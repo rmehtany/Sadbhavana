@@ -116,59 +116,6 @@ func (q *Queries) GetClusterDetail(ctx context.Context, projectCode string) (Get
 	return i, err
 }
 
-const getDonorClusterDetail = `-- name: GetDonorClusterDetail :one
-SELECT 
-    tw.project_code,
-    tw.project_name,
-    tw.metadata as project_metadata,
-    COUNT(t.id) as tree_count,
-    AVG(ST_Y(t.tree_location::geometry))::FLOAT as center_lat,
-    AVG(ST_X(t.tree_location::geometry))::FLOAT as center_lng,
-    MIN(t.planted_at)::timestamptz as first_planted,
-    MAX(t.planted_at)::timestamptz as last_planted,
-    COUNT(DISTINCT t.donor_id) as unique_donors
-FROM core.project tw
-LEFT JOIN core.tree t ON tw.project_code = t.project_code
-WHERE tw.project_code = $1
-  AND t.donor_id = $2
-GROUP BY tw.project_code, tw.project_name, tw.metadata
-`
-
-type GetDonorClusterDetailParams struct {
-	ProjectCode string `json:"project_code"`
-	DonorID     string `json:"donor_id"`
-}
-
-type GetDonorClusterDetailRow struct {
-	ProjectCode     string             `json:"project_code"`
-	ProjectName     string             `json:"project_name"`
-	ProjectMetadata []byte             `json:"project_metadata"`
-	TreeCount       int64              `json:"tree_count"`
-	CenterLat       float64            `json:"center_lat"`
-	CenterLng       float64            `json:"center_lng"`
-	FirstPlanted    pgtype.Timestamptz `json:"first_planted"`
-	LastPlanted     pgtype.Timestamptz `json:"last_planted"`
-	UniqueDonors    int64              `json:"unique_donors"`
-}
-
-// Get detailed statistics for a project cluster
-func (q *Queries) GetDonorClusterDetail(ctx context.Context, arg GetDonorClusterDetailParams) (GetDonorClusterDetailRow, error) {
-	row := q.db.QueryRow(ctx, getDonorClusterDetail, arg.ProjectCode, arg.DonorID)
-	var i GetDonorClusterDetailRow
-	err := row.Scan(
-		&i.ProjectCode,
-		&i.ProjectName,
-		&i.ProjectMetadata,
-		&i.TreeCount,
-		&i.CenterLat,
-		&i.CenterLng,
-		&i.FirstPlanted,
-		&i.LastPlanted,
-		&i.UniqueDonors,
-	)
-	return i, err
-}
-
 const getDonorIndividualTrees = `-- name: GetDonorIndividualTrees :many
 SELECT 
     t.id,

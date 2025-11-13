@@ -12,7 +12,7 @@ type GetMarkersInput struct {
 	East    float64 `query:"east" minimum:"-180" maximum:"180"`
 	West    float64 `query:"west" minimum:"-180" maximum:"180"`
 	Zoom    int     `query:"zoom" minimum:"1" maximum:"20"`
-	DonorID string  `query:"donorId,omitempty"`
+	DonorID string  `query:"donor_id,omitempty"`
 }
 
 // GetTreeDetailInput defines the tree ID parameter
@@ -23,7 +23,6 @@ type GetTreeDetailInput struct {
 // GetClusterDetailInput defines the project code parameter
 type GetClusterDetailInput struct {
 	ProjectCode string `path:"projectCode" minLength:"2" maxLength:"2"`
-	DonorID     string `query:"donorId,omitempty"`
 }
 
 // MarkerType represents the type of marker being returned

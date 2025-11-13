@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 
 	"sadbhavana/tree-project/pkgs/db"
@@ -41,6 +42,7 @@ func (h *Handlers) GetMarkers(ctx context.Context, input *GetMarkersInput) ([]te
 
 func (h *Handlers) getProjectClusterMarkers(ctx context.Context, input *GetMarkersInput) ([]template.Marker, error) {
 	var markers []template.Marker
+	log.Printf("DonorID: %s", input.DonorID)
 	if input.DonorID == "" {
 		rows, err := h.queries.GetTreesByProjectCluster(ctx, db.GetTreesByProjectClusterParams{
 			SouthLat: input.South,
@@ -96,6 +98,8 @@ func (h *Handlers) getGridClusterMarkers(ctx context.Context, input *GetMarkersI
 
 	var markers []template.Marker
 
+	log.Printf("DonorID: %s", input.DonorID)
+
 	if input.DonorID == "" {
 		rows, err := h.queries.GetTreesByGridCluster(ctx, db.GetTreesByGridClusterParams{
 			SouthLat: input.South,
@@ -145,26 +149,53 @@ func (h *Handlers) getGridClusterMarkers(ctx context.Context, input *GetMarkersI
 }
 
 func (h *Handlers) getIndividualTreeMarkers(ctx context.Context, input *GetMarkersInput) ([]template.Marker, error) {
-	trees, err := h.queries.GetIndividualTrees(ctx, db.GetIndividualTreesParams{
-		SouthLat:    input.South,
-		NorthLat:    input.North,
-		WestLng:     input.West,
-		EastLng:     input.East,
-		ResultLimit: 1000,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	markers := make([]template.Marker, 0, len(trees))
-	for _, tree := range trees {
-		markers = append(markers, template.Marker{
-			Type:  template.MarkerTypeTree,
-			Lat:   tree.Latitude,
-			Lng:   tree.Longitude,
-			ID:    tree.ID,
-			Label: fmt.Sprintf("Tree #%d - %s", tree.TreeNumber, tree.ProjectName),
+	var markers []template.Marker
+	log.Printf("DonorID: %s", input.DonorID)
+	if input.DonorID == "" {
+		trees, err := h.queries.GetIndividualTrees(ctx, db.GetIndividualTreesParams{
+			SouthLat:    input.South,
+			NorthLat:    input.North,
+			WestLng:     input.West,
+			EastLng:     input.East,
+			ResultLimit: 1000,
 		})
+		if err != nil {
+			return nil, err
+		}
+
+		markers = make([]template.Marker, 0, len(trees))
+		for _, tree := range trees {
+			markers = append(markers, template.Marker{
+				Type:  template.MarkerTypeTree,
+				Lat:   tree.Latitude,
+				Lng:   tree.Longitude,
+				ID:    tree.ID,
+				Label: fmt.Sprintf("Tree #%d - %s", tree.TreeNumber, tree.ProjectName),
+			})
+		}
+	} else {
+		trees, err := h.queries.GetDonorIndividualTrees(ctx, db.GetDonorIndividualTreesParams{
+			SouthLat:    input.South,
+			NorthLat:    input.North,
+			WestLng:     input.West,
+			EastLng:     input.East,
+			DonorID:     input.DonorID,
+			ResultLimit: 1000,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		markers = make([]template.Marker, 0, len(trees))
+		for _, tree := range trees {
+			markers = append(markers, template.Marker{
+				Type:  template.MarkerTypeTree,
+				Lat:   tree.Latitude,
+				Lng:   tree.Longitude,
+				ID:    tree.ID,
+				Label: fmt.Sprintf("Tree #%d - %s", tree.TreeNumber, tree.ProjectName),
+			})
+		}
 	}
 
 	return markers, nil
@@ -201,58 +232,31 @@ func (h *Handlers) GetTreeDetail(ctx context.Context, treeID string) (*template.
 	return &output, nil
 }
 
-func (h *Handlers) GetClusterDetail(ctx context.Context, projectCode, donorID string) (*template.ClusterDetail, error) {
+func (h *Handlers) GetClusterDetail(ctx context.Context, projectCode string) (*template.ClusterDetail, error) {
 	output := &template.ClusterDetail{}
-	if donorID == "" {
-		cluster, err := h.queries.GetClusterDetail(ctx, projectCode)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get cluster detail: %w", err)
-		}
 
-		if cluster.ProjectMetadata != nil {
-			err := json.Unmarshal(cluster.ProjectMetadata, &output.ProjectMetadata)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse project metadata: %w", err)
-			}
-		}
-		output.ProjectCode = cluster.ProjectCode
-		output.ProjectName = cluster.ProjectName
-		output.TreeCount = cluster.TreeCount
-		output.CenterLat = cluster.CenterLat
-		output.CenterLng = cluster.CenterLng
-		output.UniqueDonors = cluster.UniqueDonors
-		if cluster.FirstPlanted.Valid {
-			output.FirstPlanted = &cluster.FirstPlanted.Time
-		}
-		if cluster.LastPlanted.Valid {
-			output.LastPlanted = &cluster.LastPlanted.Time
-		}
-	} else {
-		cluster, err := h.queries.GetDonorClusterDetail(ctx, db.GetDonorClusterDetailParams{
-			ProjectCode: projectCode,
-			DonorID:     donorID,
-		})
+	cluster, err := h.queries.GetClusterDetail(ctx, projectCode)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cluster detail: %w", err)
+	}
+
+	if cluster.ProjectMetadata != nil {
+		err := json.Unmarshal(cluster.ProjectMetadata, &output.ProjectMetadata)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get cluster detail by donor: %w", err)
+			return nil, fmt.Errorf("failed to parse project metadata: %w", err)
 		}
-		if cluster.ProjectMetadata != nil {
-			err := json.Unmarshal(cluster.ProjectMetadata, &output.ProjectMetadata)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse project metadata: %w", err)
-			}
-		}
-		output.ProjectCode = cluster.ProjectCode
-		output.ProjectName = cluster.ProjectName
-		output.TreeCount = cluster.TreeCount
-		output.CenterLat = cluster.CenterLat
-		output.CenterLng = cluster.CenterLng
-		output.UniqueDonors = cluster.UniqueDonors
-		if cluster.FirstPlanted.Valid {
-			output.FirstPlanted = &cluster.FirstPlanted.Time
-		}
-		if cluster.LastPlanted.Valid {
-			output.LastPlanted = &cluster.LastPlanted.Time
-		}
+	}
+	output.ProjectCode = cluster.ProjectCode
+	output.ProjectName = cluster.ProjectName
+	output.TreeCount = cluster.TreeCount
+	output.CenterLat = cluster.CenterLat
+	output.CenterLng = cluster.CenterLng
+	output.UniqueDonors = cluster.UniqueDonors
+	if cluster.FirstPlanted.Valid {
+		output.FirstPlanted = &cluster.FirstPlanted.Time
+	}
+	if cluster.LastPlanted.Valid {
+		output.LastPlanted = &cluster.LastPlanted.Time
 	}
 
 	return output, nil
