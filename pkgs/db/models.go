@@ -21,6 +21,7 @@ type CoreFile struct {
 	FilePath       pgtype.Text        `json:"file_path"`
 	FileName       pgtype.Text        `json:"file_name"`
 	FileType       pgtype.Text        `json:"file_type"`
+	FileUrl        pgtype.Text        `json:"file_url"`
 	FileExpiration pgtype.Timestamptz `json:"file_expiration"`
 }
 

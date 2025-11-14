@@ -53,8 +53,12 @@ func main() {
 	api := humachi.New(router, huma.DefaultConfig("Tree Map API", "1.0.0"))
 
 	// Register API handlers
-	if err := web.RegisterHandlers(api); err != nil {
+	if err := web.RegisterMapHandlers(api); err != nil {
 		log.Fatalf("Failed to register API handlers: %v", err)
+	}
+
+	if err := web.RegisterWhatsappHandlers(api); err != nil {
+		log.Fatalf("Failed to register WhatsApp handlers: %v", err)
 	}
 
 	log.Println("✅ API handlers registered successfully")

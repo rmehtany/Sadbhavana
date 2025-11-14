@@ -34,8 +34,18 @@ type CreateFileParams struct {
 	FileExpiration pgtype.Timestamptz `json:"file_expiration"`
 }
 
+type CreateFileRow struct {
+	ID             string             `json:"id"`
+	FileStore      string             `json:"file_store"`
+	FileStoreID    pgtype.Text        `json:"file_store_id"`
+	FilePath       pgtype.Text        `json:"file_path"`
+	FileName       pgtype.Text        `json:"file_name"`
+	FileType       pgtype.Text        `json:"file_type"`
+	FileExpiration pgtype.Timestamptz `json:"file_expiration"`
+}
+
 // Insert a new file record
-func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) (CoreFile, error) {
+func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) (CreateFileRow, error) {
 	row := q.db.QueryRow(ctx, createFile,
 		arg.FileStore,
 		arg.FileStoreID,
@@ -44,7 +54,7 @@ func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) (CoreFil
 		arg.FileType,
 		arg.FileExpiration,
 	)
-	var i CoreFile
+	var i CreateFileRow
 	err := row.Scan(
 		&i.ID,
 		&i.FileStore,
@@ -60,23 +70,21 @@ func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) (CoreFil
 const createTreeUpdate = `-- name: CreateTreeUpdate :one
 INSERT INTO core.tree_update (
     tree_id,
-    update_date,
     file_id
 ) VALUES (
-    $1, $2, $3
+    $1, $2
 )
 RETURNING tree_id, update_date, file_id
 `
 
 type CreateTreeUpdateParams struct {
-	TreeID     string             `json:"tree_id"`
-	UpdateDate pgtype.Timestamptz `json:"update_date"`
-	FileID     string             `json:"file_id"`
+	TreeID string `json:"tree_id"`
+	FileID string `json:"file_id"`
 }
 
 // Insert a new tree update
 func (q *Queries) CreateTreeUpdate(ctx context.Context, arg CreateTreeUpdateParams) (CoreTreeUpdate, error) {
-	row := q.db.QueryRow(ctx, createTreeUpdate, arg.TreeID, arg.UpdateDate, arg.FileID)
+	row := q.db.QueryRow(ctx, createTreeUpdate, arg.TreeID, arg.FileID)
 	var i CoreTreeUpdate
 	err := row.Scan(&i.TreeID, &i.UpdateDate, &i.FileID)
 	return i, err
@@ -104,10 +112,20 @@ FROM core.file
 WHERE id = $1
 `
 
+type GetFileRow struct {
+	ID             string             `json:"id"`
+	FileStore      string             `json:"file_store"`
+	FileStoreID    pgtype.Text        `json:"file_store_id"`
+	FilePath       pgtype.Text        `json:"file_path"`
+	FileName       pgtype.Text        `json:"file_name"`
+	FileType       pgtype.Text        `json:"file_type"`
+	FileExpiration pgtype.Timestamptz `json:"file_expiration"`
+}
+
 // Get a file by ID
-func (q *Queries) GetFile(ctx context.Context, id string) (CoreFile, error) {
+func (q *Queries) GetFile(ctx context.Context, id string) (GetFileRow, error) {
 	row := q.db.QueryRow(ctx, getFile, id)
-	var i CoreFile
+	var i GetFileRow
 	err := row.Scan(
 		&i.ID,
 		&i.FileStore,

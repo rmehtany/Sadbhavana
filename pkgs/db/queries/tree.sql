@@ -169,6 +169,21 @@ JOIN core.donor d ON t.donor_id = d.id
 WHERE t.project_code = $1
 ORDER BY t.tree_number;
 
+-- name: GetTreeByProjectCodeAndNumber :one
+-- Get a single tree by project code and tree number
+SELECT 
+    t.id,
+    t.project_code,
+    t.tree_number,
+    t.donor_id,
+    ST_Y(t.tree_location::geometry)::FLOAT as latitude,
+    ST_X(t.tree_location::geometry)::FLOAT as longitude,
+    t.planted_at,
+    t.created_at,
+    t.metadata
+FROM core.tree t
+WHERE t.project_code = $1 AND t.tree_number = $2;
+
 -- name: GetClusterDetail :one
 -- Get detailed statistics for a project cluster
 SELECT 

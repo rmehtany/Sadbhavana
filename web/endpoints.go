@@ -8,11 +8,12 @@ import (
 	"sadbhavana/tree-project/pkgs/db"
 	"sadbhavana/tree-project/pkgs/html"
 	"sadbhavana/tree-project/pkgs/template"
+	"sadbhavana/tree-project/pkgs/whatsapp"
 
 	"github.com/danielgtaylor/huma/v2"
 )
 
-func RegisterHandlers(api huma.API) error {
+func RegisterMapHandlers(api huma.API) error {
 	ctx := context.Background()
 	queries, err := db.NewQueries(ctx)
 	if err != nil {
@@ -82,6 +83,27 @@ func RegisterHandlers(api huma.API) error {
 			Body: *cluster,
 		}, nil
 	})
+
+	return nil
+}
+
+func RegisterWhatsappHandlers(api huma.API) error {
+	// Placeholder for future WhatsApp-related handlers
+	huma.Register(api, huma.Operation{
+		OperationID: "whatsapp-verification",
+		Method:      http.MethodGet,
+		Path:        "/whatsapp/webhook",
+		Summary:     "Handle WhatsApp webhook verification",
+		Tags:        []string{"whatsapp"},
+	}, whatsapp.HandleWebhookVerification)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "whatsapp-webhook",
+		Method:      http.MethodPost,
+		Path:        "/whatsapp/webhook",
+		Summary:     "Handle WhatsApp webhook events",
+		Tags:        []string{"whatsapp"},
+	}, whatsapp.HandleWebhookEvent)
 
 	return nil
 }

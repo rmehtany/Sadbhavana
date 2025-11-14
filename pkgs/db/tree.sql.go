@@ -477,6 +477,56 @@ func (q *Queries) GetTreeByID(ctx context.Context, id string) (GetTreeByIDRow, e
 	return i, err
 }
 
+const getTreeByProjectCodeAndNumber = `-- name: GetTreeByProjectCodeAndNumber :one
+SELECT 
+    t.id,
+    t.project_code,
+    t.tree_number,
+    t.donor_id,
+    ST_Y(t.tree_location::geometry)::FLOAT as latitude,
+    ST_X(t.tree_location::geometry)::FLOAT as longitude,
+    t.planted_at,
+    t.created_at,
+    t.metadata
+FROM core.tree t
+WHERE t.project_code = $1 AND t.tree_number = $2
+`
+
+type GetTreeByProjectCodeAndNumberParams struct {
+	ProjectCode string `json:"project_code"`
+	TreeNumber  int32  `json:"tree_number"`
+}
+
+type GetTreeByProjectCodeAndNumberRow struct {
+	ID          string             `json:"id"`
+	ProjectCode string             `json:"project_code"`
+	TreeNumber  int32              `json:"tree_number"`
+	DonorID     string             `json:"donor_id"`
+	Latitude    float64            `json:"latitude"`
+	Longitude   float64            `json:"longitude"`
+	PlantedAt   pgtype.Timestamptz `json:"planted_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	Metadata    []byte             `json:"metadata"`
+}
+
+// Get a single tree by project code and tree number
+func (q *Queries) GetTreeByProjectCodeAndNumber(ctx context.Context, arg GetTreeByProjectCodeAndNumberParams) (GetTreeByProjectCodeAndNumberRow, error) {
+	row := q.db.QueryRow(ctx, getTreeByProjectCodeAndNumber, arg.ProjectCode, arg.TreeNumber)
+	var i GetTreeByProjectCodeAndNumberRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectCode,
+		&i.TreeNumber,
+		&i.DonorID,
+		&i.Latitude,
+		&i.Longitude,
+		&i.PlantedAt,
+		&i.CreatedAt,
+		&i.Metadata,
+	)
+	return i, err
+}
+
 const getTreeCount = `-- name: GetTreeCount :one
 SELECT COUNT(*) as total
 FROM core.tree t

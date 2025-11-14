@@ -22,10 +22,9 @@ WHERE id = $1;
 -- Insert a new tree update
 INSERT INTO core.tree_update (
     tree_id,
-    update_date,
     file_id
 ) VALUES (
-    $1, $2, $3
+    $1, $2
 )
 RETURNING tree_id, update_date, file_id;
 

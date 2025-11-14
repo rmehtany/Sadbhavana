@@ -38,17 +38,18 @@ CREATE TABLE core.tree (
 CREATE TABLE core.file (
     id CHAR(21) PRIMARY KEY DEFAULT core.generate_nanoid('FIL'),
     file_store VARCHAR(255) NOT NULL,
-    file_store_id VARCHAR(1027),
-    file_path VARCHAR(1027),
+    file_store_id VARCHAR(1023),
+    file_path VARCHAR(1023),
     file_name VARCHAR(255),
     file_type VARCHAR(255),
+    file_url VARCHAR(1023),
     file_expiration TIMESTAMPTZ
 );
 
 -- Create tree_update table
 CREATE TABLE core.tree_update (
     tree_id CHAR(21) NOT NULL REFERENCES core.tree(id),
-    update_date TIMESTAMPTZ NOT NULL,
+    update_date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     file_id CHAR(21) NOT NULL REFERENCES core.file(id),
     PRIMARY KEY (tree_id, update_date)
 );

@@ -13,7 +13,9 @@ import (
 type Config struct {
 	Version        int
 	BaseConfig     BaseConfig
+	GeminiConfig   GeminiConfig
 	PostgresConfig PostgresConfig
+	WhatsappConfig WhatsappConfig
 }
 
 type BaseConfig struct {
@@ -28,6 +30,15 @@ type PostgresConfig struct {
 	Database       string `env:"DB_NAME,required" validate:"required"`
 	SSLMode        string `env:"DB_SSLMODE,required" validate:"required,oneof=disable require verify-ca verify-full"`
 	ChannelBinding string `env:"DB_CHANNEL_BINDING"`
+}
+
+type WhatsappConfig struct {
+	AccessToken string `env:"WHATSAPP_ACCESS_TOKEN,required" validate:"required"`
+	VerifyToken string `env:"WHATSAPP_VERIFY_TOKEN,required" validate:"required"`
+}
+
+type GeminiConfig struct {
+	APIKey string `env:"GEMINI_API_KEY,required" validate:"required"`
 }
 
 func (a *PostgresConfig) DBURI() string {

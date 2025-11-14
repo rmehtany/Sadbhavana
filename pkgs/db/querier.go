@@ -12,7 +12,7 @@ type Querier interface {
 	// Insert a new donor
 	CreateDonor(ctx context.Context, arg CreateDonorParams) (CoreDonor, error)
 	// Insert a new file record
-	CreateFile(ctx context.Context, arg CreateFileParams) (CoreFile, error)
+	CreateFile(ctx context.Context, arg CreateFileParams) (CreateFileRow, error)
 	CreateProject(ctx context.Context, arg CreateProjectParams) (CoreProject, error)
 	// Insert a new tree
 	CreateTree(ctx context.Context, arg CreateTreeParams) (CreateTreeRow, error)
@@ -36,19 +36,24 @@ type Querier interface {
 	// Get donor with their tree count
 	GetDonorWithTreeCount(ctx context.Context, id string) (GetDonorWithTreeCountRow, error)
 	// Get a file by ID
-	GetFile(ctx context.Context, id string) (CoreFile, error)
+	GetFile(ctx context.Context, id string) (GetFileRow, error)
+	GetFileByID(ctx context.Context, fileID string) (CoreFile, error)
 	// Zoom levels 13+: Return individual trees with details
 	GetIndividualTrees(ctx context.Context, arg GetIndividualTreesParams) ([]GetIndividualTreesRow, error)
 	// Get the most recent update for a tree
 	GetLatestTreeUpdate(ctx context.Context, treeID string) (GetLatestTreeUpdateRow, error)
+	GetLatestTreeUpdateFile(ctx context.Context, treeID string) (CoreFile, error)
 	GetProject(ctx context.Context, projectCode string) (CoreProject, error)
 	GetProjectWithTreeCount(ctx context.Context, projectCode string) (GetProjectWithTreeCountRow, error)
 	// Get recent updates across all trees
 	GetRecentUpdates(ctx context.Context, limit int32) ([]GetRecentUpdatesRow, error)
 	// Get a single tree by ID with full details
 	GetTreeByID(ctx context.Context, id string) (GetTreeByIDRow, error)
+	// Get a single tree by project code and tree number
+	GetTreeByProjectCodeAndNumber(ctx context.Context, arg GetTreeByProjectCodeAndNumberParams) (GetTreeByProjectCodeAndNumberRow, error)
 	// Get total tree count, optionally filtered by project
 	GetTreeCount(ctx context.Context, dollar_1 string) (int64, error)
+	GetTreeUpdateFiles(ctx context.Context, treeID string) ([]CoreFile, error)
 	// Get all updates for a specific tree
 	GetTreeUpdates(ctx context.Context, treeID string) ([]GetTreeUpdatesRow, error)
 	// Zoom levels 9-12: Grid-based clustering for medium zoom
@@ -68,6 +73,7 @@ type Querier interface {
 	// Update donor information
 	UpdateDonor(ctx context.Context, arg UpdateDonorParams) (CoreDonor, error)
 	UpdateProject(ctx context.Context, arg UpdateProjectParams) (CoreProject, error)
+	UpsertFile(ctx context.Context, arg UpsertFileParams) (CoreFile, error)
 }
 
 var _ Querier = (*Queries)(nil)
