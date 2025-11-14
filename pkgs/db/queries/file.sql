@@ -9,16 +9,14 @@ VALUES(
     sqlc.arg(file_type),
     sqlc.arg(file_expiration)
 )
-ON CONFLICT (id) DO UPDATE SET
+ON CONFLICT (file_store_id) DO UPDATE SET
     file_store = EXCLUDED.file_store,
-    file_store_id = EXCLUDED.file_store_id,
     file_path = EXCLUDED.file_path,
     file_name = EXCLUDED.file_name,
     file_url = EXCLUDED.file_url,
     file_type = EXCLUDED.file_type,
     file_expiration = EXCLUDED.file_expiration
-RETURNING
-    *;
+RETURNING *;
 
 -- name: GetFileByID :one
 SELECT *

@@ -43,7 +43,8 @@ CREATE TABLE core.file (
     file_name VARCHAR(255),
     file_type VARCHAR(255),
     file_url VARCHAR(1023),
-    file_expiration TIMESTAMPTZ
+    file_expiration TIMESTAMPTZ,
+    UNIQUE(file_store_id)
 );
 
 -- Create tree_update table
@@ -51,7 +52,8 @@ CREATE TABLE core.tree_update (
     tree_id CHAR(21) NOT NULL REFERENCES core.tree(id),
     update_date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     file_id CHAR(21) NOT NULL REFERENCES core.file(id),
-    PRIMARY KEY (tree_id, update_date)
+    PRIMARY KEY (tree_id, update_date),
+    UNIQUE(tree_id, file_id)
 );
 
 -- Create indexes for performance

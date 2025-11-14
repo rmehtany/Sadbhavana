@@ -2,6 +2,7 @@ package file
 
 import (
 	"context"
+	"log"
 	"sadbhavana/tree-project/pkgs/db"
 	"time"
 
@@ -10,6 +11,8 @@ import (
 )
 
 func (f *FileInfo) SaveToDB(ctx context.Context, q *db.Queries) (string, error) {
+	log.Printf("Preparing to save file info: %+v", f)
+
 	mimeTypeStr, err := f.MimeType.ToGoogleMimeType()
 	if err != nil {
 		return "", errors.Annotatef(err, "invalid mime type: %v", f.MimeType)

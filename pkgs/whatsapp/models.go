@@ -10,7 +10,7 @@ type WebhookVerifyInput struct {
 
 // Webhook verification response
 type WebhookVerifyOutput struct {
-	Body string
+	Body string `header:"Content-Type=text/plain"`
 }
 
 // Webhook event structures

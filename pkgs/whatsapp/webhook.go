@@ -187,6 +187,8 @@ func downloadMedia(mediaID string) (*file.FileInfo, error) {
 		},
 	}
 
+	log.Printf("Prepared FileInfo: %+v", fileInfo)
+
 	// Step 6: Save to local file store
 	fileStore, err := file.NewFileStore(fileInfo.FileStore, nil)
 	if err != nil {

@@ -11,8 +11,6 @@ import (
 type Querier interface {
 	// Insert a new donor
 	CreateDonor(ctx context.Context, arg CreateDonorParams) (CoreDonor, error)
-	// Insert a new file record
-	CreateFile(ctx context.Context, arg CreateFileParams) (CreateFileRow, error)
 	CreateProject(ctx context.Context, arg CreateProjectParams) (CoreProject, error)
 	// Insert a new tree
 	CreateTree(ctx context.Context, arg CreateTreeParams) (CreateTreeRow, error)
@@ -35,8 +33,6 @@ type Querier interface {
 	GetDonorTreesByProjectCluster(ctx context.Context, arg GetDonorTreesByProjectClusterParams) ([]GetDonorTreesByProjectClusterRow, error)
 	// Get donor with their tree count
 	GetDonorWithTreeCount(ctx context.Context, id string) (GetDonorWithTreeCountRow, error)
-	// Get a file by ID
-	GetFile(ctx context.Context, id string) (GetFileRow, error)
 	GetFileByID(ctx context.Context, fileID string) (CoreFile, error)
 	// Zoom levels 13+: Return individual trees with details
 	GetIndividualTrees(ctx context.Context, arg GetIndividualTreesParams) ([]GetIndividualTreesRow, error)

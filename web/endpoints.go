@@ -2,15 +2,19 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 
+	"sadbhavana/tree-project/pkgs/conf"
 	"sadbhavana/tree-project/pkgs/db"
 	"sadbhavana/tree-project/pkgs/html"
 	"sadbhavana/tree-project/pkgs/template"
 	"sadbhavana/tree-project/pkgs/whatsapp"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/go-chi/chi/v5"
 )
 
 func RegisterMapHandlers(api huma.API) error {
@@ -87,23 +91,50 @@ func RegisterMapHandlers(api huma.API) error {
 	return nil
 }
 
-func RegisterWhatsappHandlers(api huma.API) error {
-	// Placeholder for future WhatsApp-related handlers
-	huma.Register(api, huma.Operation{
-		OperationID: "whatsapp-verification",
-		Method:      http.MethodGet,
-		Path:        "/whatsapp/webhook",
-		Summary:     "Handle WhatsApp webhook verification",
-		Tags:        []string{"whatsapp"},
-	}, whatsapp.HandleWebhookVerification)
+func RegisterWhatsappHandlers(mux chi.Router) error {
+	// GET for webhook verification
+	mux.Get("/whatsapp/webhook", func(w http.ResponseWriter, r *http.Request) {
+		mode := r.URL.Query().Get("hub.mode")
+		token := r.URL.Query().Get("hub.verify_token")
+		challenge := r.URL.Query().Get("hub.challenge")
 
-	huma.Register(api, huma.Operation{
-		OperationID: "whatsapp-webhook",
-		Method:      http.MethodPost,
-		Path:        "/whatsapp/webhook",
-		Summary:     "Handle WhatsApp webhook events",
-		Tags:        []string{"whatsapp"},
-	}, whatsapp.HandleWebhookEvent)
+		log.Printf("Verification request - Mode: %s, Token: %s", mode, token)
+
+		verifyToken := conf.GetConfig().WhatsappConfig.VerifyToken
+
+		if mode == "subscribe" && token == verifyToken {
+			log.Println("Webhook verified successfully")
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(challenge))
+			return
+		}
+
+		log.Println("Verification failed")
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte("Verification failed"))
+	})
+
+	// POST for webhook events
+	mux.Post("/whatsapp/webhook", func(w http.ResponseWriter, r *http.Request) {
+		var payload whatsapp.WebhookPayload
+		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+			log.Printf("Error decoding webhook payload: %v", err)
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("Bad Request"))
+			return
+		}
+
+		// Call your handler function
+		input := &whatsapp.WebhookInput{Body: payload}
+		output, err := whatsapp.HandleWebhookEvent(r.Context(), input)
+		if err != nil {
+			log.Printf("Error handling webhook event: %v", err)
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(output.Body))
+	})
 
 	return nil
 }

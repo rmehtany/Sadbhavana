@@ -11,62 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createFile = `-- name: CreateFile :one
-INSERT INTO core.file (
-    file_store,
-    file_store_id,
-    file_path,
-    file_name,
-    file_type,
-    file_expiration
-) VALUES (
-    $1, $2, $3, $4, $5, $6
-)
-RETURNING id, file_store, file_store_id, file_path, file_name, file_type, file_expiration
-`
-
-type CreateFileParams struct {
-	FileStore      string             `json:"file_store"`
-	FileStoreID    pgtype.Text        `json:"file_store_id"`
-	FilePath       pgtype.Text        `json:"file_path"`
-	FileName       pgtype.Text        `json:"file_name"`
-	FileType       pgtype.Text        `json:"file_type"`
-	FileExpiration pgtype.Timestamptz `json:"file_expiration"`
-}
-
-type CreateFileRow struct {
-	ID             string             `json:"id"`
-	FileStore      string             `json:"file_store"`
-	FileStoreID    pgtype.Text        `json:"file_store_id"`
-	FilePath       pgtype.Text        `json:"file_path"`
-	FileName       pgtype.Text        `json:"file_name"`
-	FileType       pgtype.Text        `json:"file_type"`
-	FileExpiration pgtype.Timestamptz `json:"file_expiration"`
-}
-
-// Insert a new file record
-func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) (CreateFileRow, error) {
-	row := q.db.QueryRow(ctx, createFile,
-		arg.FileStore,
-		arg.FileStoreID,
-		arg.FilePath,
-		arg.FileName,
-		arg.FileType,
-		arg.FileExpiration,
-	)
-	var i CreateFileRow
-	err := row.Scan(
-		&i.ID,
-		&i.FileStore,
-		&i.FileStoreID,
-		&i.FilePath,
-		&i.FileName,
-		&i.FileType,
-		&i.FileExpiration,
-	)
-	return i, err
-}
-
 const createTreeUpdate = `-- name: CreateTreeUpdate :one
 INSERT INTO core.tree_update (
     tree_id,
@@ -74,6 +18,8 @@ INSERT INTO core.tree_update (
 ) VALUES (
     $1, $2
 )
+ON CONFLICT (tree_id, file_id)
+DO UPDATE SET tree_id = EXCLUDED.tree_id
 RETURNING tree_id, update_date, file_id
 `
 
@@ -104,38 +50,6 @@ type DeleteTreeUpdateParams struct {
 func (q *Queries) DeleteTreeUpdate(ctx context.Context, arg DeleteTreeUpdateParams) error {
 	_, err := q.db.Exec(ctx, deleteTreeUpdate, arg.TreeID, arg.UpdateDate)
 	return err
-}
-
-const getFile = `-- name: GetFile :one
-SELECT id, file_store, file_store_id, file_path, file_name, file_type, file_expiration
-FROM core.file
-WHERE id = $1
-`
-
-type GetFileRow struct {
-	ID             string             `json:"id"`
-	FileStore      string             `json:"file_store"`
-	FileStoreID    pgtype.Text        `json:"file_store_id"`
-	FilePath       pgtype.Text        `json:"file_path"`
-	FileName       pgtype.Text        `json:"file_name"`
-	FileType       pgtype.Text        `json:"file_type"`
-	FileExpiration pgtype.Timestamptz `json:"file_expiration"`
-}
-
-// Get a file by ID
-func (q *Queries) GetFile(ctx context.Context, id string) (GetFileRow, error) {
-	row := q.db.QueryRow(ctx, getFile, id)
-	var i GetFileRow
-	err := row.Scan(
-		&i.ID,
-		&i.FileStore,
-		&i.FileStoreID,
-		&i.FilePath,
-		&i.FileName,
-		&i.FileType,
-		&i.FileExpiration,
-	)
-	return i, err
 }
 
 const getLatestTreeUpdate = `-- name: GetLatestTreeUpdate :one

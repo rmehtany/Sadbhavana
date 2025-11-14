@@ -57,7 +57,7 @@ func main() {
 		log.Fatalf("Failed to register API handlers: %v", err)
 	}
 
-	if err := web.RegisterWhatsappHandlers(api); err != nil {
+	if err := web.RegisterWhatsappHandlers(router); err != nil {
 		log.Fatalf("Failed to register WhatsApp handlers: %v", err)
 	}
 

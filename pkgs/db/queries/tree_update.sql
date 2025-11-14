@@ -1,23 +1,3 @@
--- name: CreateFile :one
--- Insert a new file record
-INSERT INTO core.file (
-    file_store,
-    file_store_id,
-    file_path,
-    file_name,
-    file_type,
-    file_expiration
-) VALUES (
-    $1, $2, $3, $4, $5, $6
-)
-RETURNING id, file_store, file_store_id, file_path, file_name, file_type, file_expiration;
-
--- name: GetFile :one
--- Get a file by ID
-SELECT id, file_store, file_store_id, file_path, file_name, file_type, file_expiration
-FROM core.file
-WHERE id = $1;
-
 -- name: CreateTreeUpdate :one
 -- Insert a new tree update
 INSERT INTO core.tree_update (
@@ -26,6 +6,8 @@ INSERT INTO core.tree_update (
 ) VALUES (
     $1, $2
 )
+ON CONFLICT (tree_id, file_id)
+DO UPDATE SET tree_id = EXCLUDED.tree_id
 RETURNING tree_id, update_date, file_id;
 
 -- name: GetTreeUpdates :many

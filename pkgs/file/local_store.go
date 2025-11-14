@@ -3,6 +3,7 @@ package file
 import (
 	"context"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 )
@@ -54,6 +55,7 @@ func (l *LocalFileStore) UploadFile(ctx context.Context, file FileInfo, data io.
 	}
 
 	fullPath := filepath.Join(l.Root, file.FilePath)
+	log.Printf("Uploading file to %s", fullPath)
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
 		return FileInfo{}, err
 	}
