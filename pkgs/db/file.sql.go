@@ -34,7 +34,7 @@ func (q *Queries) GetFileByID(ctx context.Context, fileID string) (CoreFile, err
 }
 
 const getLatestTreeUpdateFile = `-- name: GetLatestTreeUpdateFile :one
-SELECT f.id, f.file_store, f.file_store_id, f.file_path, f.file_name, f.file_type, f.file_url, f.file_expiration
+SELECT tu.update_date, f.id, f.file_store, f.file_store_id, f.file_path, f.file_name, f.file_type, f.file_url, f.file_expiration
 FROM core.file AS f
     JOIN core.tree_update AS tu ON f.id = tu.file_id
 WHERE tu.tree_id = $1
@@ -42,10 +42,23 @@ ORDER BY tu.update_date DESC
 LIMIT 1
 `
 
-func (q *Queries) GetLatestTreeUpdateFile(ctx context.Context, treeID string) (CoreFile, error) {
+type GetLatestTreeUpdateFileRow struct {
+	UpdateDate     pgtype.Timestamptz `json:"update_date"`
+	ID             string             `json:"id"`
+	FileStore      string             `json:"file_store"`
+	FileStoreID    pgtype.Text        `json:"file_store_id"`
+	FilePath       pgtype.Text        `json:"file_path"`
+	FileName       pgtype.Text        `json:"file_name"`
+	FileType       pgtype.Text        `json:"file_type"`
+	FileUrl        pgtype.Text        `json:"file_url"`
+	FileExpiration pgtype.Timestamptz `json:"file_expiration"`
+}
+
+func (q *Queries) GetLatestTreeUpdateFile(ctx context.Context, treeID string) (GetLatestTreeUpdateFileRow, error) {
 	row := q.db.QueryRow(ctx, getLatestTreeUpdateFile, treeID)
-	var i CoreFile
+	var i GetLatestTreeUpdateFileRow
 	err := row.Scan(
+		&i.UpdateDate,
 		&i.ID,
 		&i.FileStore,
 		&i.FileStoreID,
@@ -96,8 +109,16 @@ func (q *Queries) GetTreeUpdateFiles(ctx context.Context, treeID string) ([]Core
 }
 
 const upsertFile = `-- name: UpsertFile :one
-INSERT INTO core.file (file_store, file_store_id, file_path, file_name, file_url, file_type, file_expiration)
-VALUES(
+INSERT INTO core.file (
+    file_store,
+    file_store_id,
+    file_path,
+    file_name,
+    file_url,
+    file_type,
+    file_expiration
+)
+VALUES (
     $1,
     $2,
     $3,
@@ -113,7 +134,9 @@ ON CONFLICT (file_store_id) DO UPDATE SET
     file_url = EXCLUDED.file_url,
     file_type = EXCLUDED.file_type,
     file_expiration = EXCLUDED.file_expiration
-RETURNING id, file_store, file_store_id, file_path, file_name, file_type, file_url, file_expiration
+RETURNING 
+    id,
+    (xmax != 0) AS was_updated
 `
 
 type UpsertFileParams struct {
@@ -126,7 +149,12 @@ type UpsertFileParams struct {
 	FileExpiration pgtype.Timestamptz `json:"file_expiration"`
 }
 
-func (q *Queries) UpsertFile(ctx context.Context, arg UpsertFileParams) (CoreFile, error) {
+type UpsertFileRow struct {
+	ID         string `json:"id"`
+	WasUpdated bool   `json:"was_updated"`
+}
+
+func (q *Queries) UpsertFile(ctx context.Context, arg UpsertFileParams) (UpsertFileRow, error) {
 	row := q.db.QueryRow(ctx, upsertFile,
 		arg.FileStore,
 		arg.FileStoreID,
@@ -136,16 +164,7 @@ func (q *Queries) UpsertFile(ctx context.Context, arg UpsertFileParams) (CoreFil
 		arg.FileType,
 		arg.FileExpiration,
 	)
-	var i CoreFile
-	err := row.Scan(
-		&i.ID,
-		&i.FileStore,
-		&i.FileStoreID,
-		&i.FilePath,
-		&i.FileName,
-		&i.FileType,
-		&i.FileUrl,
-		&i.FileExpiration,
-	)
+	var i UpsertFileRow
+	err := row.Scan(&i.ID, &i.WasUpdated)
 	return i, err
 }

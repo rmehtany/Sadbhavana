@@ -1,6 +1,14 @@
 -- name: UpsertFile :one
-INSERT INTO core.file (file_store, file_store_id, file_path, file_name, file_url, file_type, file_expiration)
-VALUES(
+INSERT INTO core.file (
+    file_store,
+    file_store_id,
+    file_path,
+    file_name,
+    file_url,
+    file_type,
+    file_expiration
+)
+VALUES (
     sqlc.arg(file_store),
     sqlc.arg(file_store_id),
     sqlc.arg(file_path),
@@ -16,7 +24,9 @@ ON CONFLICT (file_store_id) DO UPDATE SET
     file_url = EXCLUDED.file_url,
     file_type = EXCLUDED.file_type,
     file_expiration = EXCLUDED.file_expiration
-RETURNING *;
+RETURNING 
+    id,
+    (xmax != 0) AS was_updated;
 
 -- name: GetFileByID :one
 SELECT *
@@ -24,7 +34,7 @@ FROM core.file
 WHERE id = sqlc.arg(file_id);
 
 -- name: GetLatestTreeUpdateFile :one
-SELECT f.*
+SELECT tu.update_date, f.*
 FROM core.file AS f
     JOIN core.tree_update AS tu ON f.id = tu.file_id
 WHERE tu.tree_id = sqlc.arg(tree_id)

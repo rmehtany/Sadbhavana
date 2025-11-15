@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createProject = `-- name: CreateProject :one
@@ -145,6 +147,33 @@ func (q *Queries) ListProjectsWithTreeCounts(ctx context.Context) ([]ListProject
 			&i.Metadata,
 			&i.TreeCount,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchProjects = `-- name: SearchProjects :many
+SELECT project_name, metadata, project_code
+FROM core.project
+WHERE project_name ILIKE '%' || $1 || '%' OR project_code ILIKE '%' || $1 || '%'
+ORDER BY project_name
+`
+
+func (q *Queries) SearchProjects(ctx context.Context, dollar_1 pgtype.Text) ([]CoreProject, error) {
+	rows, err := q.db.Query(ctx, searchProjects, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CoreProject{}
+	for rows.Next() {
+		var i CoreProject
+		if err := rows.Scan(&i.ProjectName, &i.Metadata, &i.ProjectCode); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

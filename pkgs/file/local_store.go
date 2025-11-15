@@ -2,6 +2,7 @@ package file
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -74,6 +75,7 @@ func (l *LocalFileStore) UploadFile(ctx context.Context, file FileInfo, data io.
 	file.Size = n
 	file.FileName = filepath.Base(fullPath)
 	file.FileStore = "local"
+	file.FileURL = fmt.Sprintf("file://%s", fullPath)
 	return file, nil
 }
 

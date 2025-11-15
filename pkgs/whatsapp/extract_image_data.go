@@ -16,9 +16,13 @@ func extractImageData(ctx context.Context, q *db.Queries, msg ParsedMessage) err
 		return nil
 	}
 
-	fileID, err := msg.File.SaveToDB(ctx, q)
+	fileID, wasUpdated, err := msg.File.SaveToDB(ctx, q)
 	if err != nil {
 		return errors.Annotatef(err, "failed to save image file to database")
+	}
+	if wasUpdated {
+		// Already processed
+		return nil
 	}
 
 	client, err := llm.NewGeminiClient(ctx, llm.Gemini25Pro)

@@ -6,6 +6,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
@@ -38,7 +40,7 @@ type Querier interface {
 	GetIndividualTrees(ctx context.Context, arg GetIndividualTreesParams) ([]GetIndividualTreesRow, error)
 	// Get the most recent update for a tree
 	GetLatestTreeUpdate(ctx context.Context, treeID string) (GetLatestTreeUpdateRow, error)
-	GetLatestTreeUpdateFile(ctx context.Context, treeID string) (CoreFile, error)
+	GetLatestTreeUpdateFile(ctx context.Context, treeID string) (GetLatestTreeUpdateFileRow, error)
 	GetProject(ctx context.Context, projectCode string) (CoreProject, error)
 	GetProjectWithTreeCount(ctx context.Context, projectCode string) (GetProjectWithTreeCountRow, error)
 	// Get recent updates across all trees
@@ -66,10 +68,13 @@ type Querier interface {
 	ListDonorsWithTreeCounts(ctx context.Context) ([]ListDonorsWithTreeCountsRow, error)
 	ListProjects(ctx context.Context) ([]CoreProject, error)
 	ListProjectsWithTreeCounts(ctx context.Context) ([]ListProjectsWithTreeCountsRow, error)
+	// Search donors by name or phone number
+	SearchDonors(ctx context.Context, dollar_1 pgtype.Text) ([]CoreDonor, error)
+	SearchProjects(ctx context.Context, dollar_1 pgtype.Text) ([]CoreProject, error)
 	// Update donor information
 	UpdateDonor(ctx context.Context, arg UpdateDonorParams) (CoreDonor, error)
 	UpdateProject(ctx context.Context, arg UpdateProjectParams) (CoreProject, error)
-	UpsertFile(ctx context.Context, arg UpsertFileParams) (CoreFile, error)
+	UpsertFile(ctx context.Context, arg UpsertFileParams) (UpsertFileRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -61,6 +61,10 @@ func main() {
 		log.Fatalf("Failed to register WhatsApp handlers: %v", err)
 	}
 
+	if err := web.RegisterAdminHandlers(api); err != nil {
+		log.Fatalf("Failed to register Admin handlers: %v", err)
+	}
+
 	log.Println("✅ API handlers registered successfully")
 
 	// Server configuration

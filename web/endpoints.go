@@ -130,11 +130,59 @@ func RegisterWhatsappHandlers(mux chi.Router) error {
 		output, err := whatsapp.HandleWebhookEvent(r.Context(), input)
 		if err != nil {
 			log.Printf("Error handling webhook event: %v", err)
+		} else if output != nil {
+			w.Write([]byte(output.Body))
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(output.Body))
+
 	})
+
+	return nil
+}
+
+func RegisterAdminHandlers(api huma.API) error {
+	huma.Register(api, huma.Operation{
+		OperationID: "get-admin-page",
+		Method:      "GET",
+		Path:        "/admin",
+		Summary:     "Render the admin page",
+	}, GetAdminPage)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "search-projects",
+		Method:      "GET",
+		Path:        "/api/projects/search",
+		Summary:     "Search projects by name",
+	}, SearchProjects)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "create-project",
+		Method:      "POST",
+		Path:        "/api/projects",
+		Summary:     "Create a new project",
+	}, CreateProject)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "create-donor",
+		Method:      "POST",
+		Path:        "/api/donors",
+		Summary:     "Create a new donor",
+	}, CreateDonor)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "search-donors",
+		Method:      "GET",
+		Path:        "/api/donors/search",
+		Summary:     "Search donors by name",
+	}, SearchDonors)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "create-tree",
+		Method:      "POST",
+		Path:        "/api/trees",
+		Summary:     "Create a new tree",
+	}, CreateTree)
 
 	return nil
 }

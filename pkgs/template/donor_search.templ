@@ -1,0 +1,18 @@
+package template
+
+type Donor struct {
+	ID    string
+	Name  string
+}
+
+templ DonorSearchResults(donors []Donor) {
+	if len(donors) > 0 {
+		for _, donor := range donors {
+			<div class="donor-item" data-donor-id={ donor.ID } data-donor-name={ donor.Name } onclick="selectDonor(this.dataset.donorId, this.dataset.donorName)">
+				{ donor.Name }
+			</div>
+		}
+	} else {
+		<div class="donor-item" style="cursor: default;">No donors found</div>
+	}
+}

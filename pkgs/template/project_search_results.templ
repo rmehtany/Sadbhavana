@@ -1,0 +1,18 @@
+package template
+
+type Project struct {
+    Code string
+    Name string
+}
+
+templ ProjectSearchResults(projects []Project) {
+	if len(projects) > 0 {
+		for _, project := range projects {
+			<div class="donor-item" data-project-code={ project.Code } data-project-name={ project.Name } onclick="selectProject(this.dataset.projectCode, this.dataset.projectName)">
+				{ project.Code } - { project.Name }
+			</div>
+		}
+	} else {
+		<div class="donor-item" style="cursor: default;">No projects found</div>
+	}
+}

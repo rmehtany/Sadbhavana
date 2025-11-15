@@ -53,7 +53,7 @@ CREATE TABLE core.tree_update (
     update_date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     file_id CHAR(21) NOT NULL REFERENCES core.file(id),
     PRIMARY KEY (tree_id, update_date),
-    UNIQUE(tree_id, file_id)
+    UNIQUE(file_id)
 );
 
 -- Create indexes for performance

@@ -6,8 +6,8 @@ INSERT INTO core.tree_update (
 ) VALUES (
     $1, $2
 )
-ON CONFLICT (tree_id, file_id)
-DO UPDATE SET tree_id = EXCLUDED.tree_id
+ON CONFLICT (file_id)
+DO UPDATE SET file_id = EXCLUDED.file_id
 RETURNING tree_id, update_date, file_id;
 
 -- name: GetTreeUpdates :many

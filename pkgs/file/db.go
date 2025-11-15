@@ -10,12 +10,12 @@ import (
 	"github.com/juju/errors"
 )
 
-func (f *FileInfo) SaveToDB(ctx context.Context, q *db.Queries) (string, error) {
+func (f *FileInfo) SaveToDB(ctx context.Context, q *db.Queries) (string, bool, error) {
 	log.Printf("Preparing to save file info: %+v", f)
 
 	mimeTypeStr, err := f.MimeType.ToGoogleMimeType()
 	if err != nil {
-		return "", errors.Annotatef(err, "invalid mime type: %v", f.MimeType)
+		return "", false, errors.Annotatef(err, "invalid mime type: %v", f.MimeType)
 	}
 	dbFile := db.UpsertFileParams{FileStore: f.FileStore, FileType: pgtype.Text{String: mimeTypeStr, Valid: true}}
 	if f.FileID != "" {
@@ -30,13 +30,16 @@ func (f *FileInfo) SaveToDB(ctx context.Context, q *db.Queries) (string, error) 
 	if f.Expiration != nil {
 		dbFile.FileExpiration = pgtype.Timestamptz{Time: *f.Expiration, Valid: true}
 	}
+	if f.FileName != "" {
+		dbFile.FileName = pgtype.Text{String: f.FileName, Valid: true}
+	}
 
 	upsertedFile, err := q.UpsertFile(ctx, dbFile)
 	if err != nil {
-		return "", errors.Annotatef(err, "failed to upsert file in database")
+		return "", false, errors.Annotatef(err, "failed to upsert file in database")
 	}
 
-	return upsertedFile.ID, nil
+	return upsertedFile.ID, upsertedFile.WasUpdated, nil
 }
 
 func ExtractFileInfoFromDB(dbFile db.CoreFile) (FileInfo, error) {

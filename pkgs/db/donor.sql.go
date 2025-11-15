@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createDonor = `-- name: CreateDonor :one
@@ -154,6 +156,34 @@ func (q *Queries) ListDonorsWithTreeCounts(ctx context.Context) ([]ListDonorsWit
 			&i.PhoneNumber,
 			&i.TreeCount,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchDonors = `-- name: SearchDonors :many
+SELECT id, donor_name, phone_number
+FROM core.donor
+WHERE donor_name ILIKE '%' || $1 || '%' OR phone_number ILIKE '%' || $1 || '%'
+ORDER BY donor_name
+`
+
+// Search donors by name or phone number
+func (q *Queries) SearchDonors(ctx context.Context, dollar_1 pgtype.Text) ([]CoreDonor, error) {
+	rows, err := q.db.Query(ctx, searchDonors, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CoreDonor{}
+	for rows.Next() {
+		var i CoreDonor
+		if err := rows.Scan(&i.ID, &i.DonorName, &i.PhoneNumber); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

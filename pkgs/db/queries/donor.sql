@@ -58,3 +58,10 @@ FROM core.donor d
 LEFT JOIN core.tree t ON d.id = t.donor_id
 GROUP BY d.id, d.donor_name, d.phone_number
 ORDER BY tree_count DESC, d.donor_name;
+
+-- name: SearchDonors :many
+-- Search donors by name or phone number
+SELECT id, donor_name, phone_number
+FROM core.donor
+WHERE donor_name ILIKE '%' || $1 || '%' OR phone_number ILIKE '%' || $1 || '%'
+ORDER BY donor_name;

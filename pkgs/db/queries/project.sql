@@ -49,3 +49,9 @@ FROM core.project t
 LEFT JOIN core.tree tr ON t.project_code = tr.project_code
 GROUP BY t.project_code, t.project_name, t.metadata
 ORDER BY t.project_name;
+
+-- name: SearchProjects :many
+SELECT *
+FROM core.project
+WHERE project_name ILIKE '%' || $1 || '%' OR project_code ILIKE '%' || $1 || '%'
+ORDER BY project_name;
