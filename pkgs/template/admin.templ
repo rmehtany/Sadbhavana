@@ -275,7 +275,7 @@ templ SadbhavanaAdminPage(bannerMsg string) {
 					<!-- Create Project Form -->
 					<div class="form-card">
 						<h2>Create Project</h2>
-						<form hx-post="/api/projects" hx-encoding="form">
+						<form hx-post="/api/projects" hx-encoding="multipart/form-data">
 							<div class="form-group">
 								<label for="project-name">Name</label>
 								<input type="text" id="project-name" name="name" required/>
@@ -314,7 +314,7 @@ templ SadbhavanaAdminPage(bannerMsg string) {
 					<!-- Create Donor Form -->
 					<div class="form-card">
 						<h2>Create Donor</h2>
-						<form hx-post="/api/donors" hx-encoding="form">
+						<form hx-post="/api/donors" hx-encoding="multipart/form-data">
 							<div class="form-group">
 								<label for="donor-name">Name</label>
 								<input type="text" id="donor-name" name="name" required/>
@@ -332,7 +332,7 @@ templ SadbhavanaAdminPage(bannerMsg string) {
 					<!-- Create Tree Form -->
 					<div class="form-card">
 						<h2>Create Tree</h2>
-						<form hx-post="/api/trees" hx-encoding="form">
+						<form hx-post="/api/trees" hx-encoding="multipart/form-data">
 							<div class="form-group">
 								<label for="project-search">Project Code</label>
 								<div class="donor-search-results">

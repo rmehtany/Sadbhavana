@@ -9,9 +9,6 @@ RUN go mod download 2>/dev/null || true
 # Copy source code
 COPY . .
 
-# Copy static files
-COPY static/ ./static/
-
 # Expose port for the application
 EXPOSE 8080
 

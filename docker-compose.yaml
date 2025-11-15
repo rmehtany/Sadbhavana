@@ -7,6 +7,8 @@ services:
       dockerfile: Dockerfile.dev
     ports:
       - "8080:8080"
+    volumes:
+      - ./static:/app/static  # Mount local file_store to container
     depends_on:
       db:
         condition: service_healthy

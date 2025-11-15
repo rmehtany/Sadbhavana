@@ -322,10 +322,15 @@ func SearchProjects(ctx context.Context, input *ProjectSearchInput) (*html.HTMLR
 }
 
 // POST /api/projects - Creates a new project
-func CreateProject(ctx context.Context, input *CreateProjectInput) (*RedirectResponse, error) {
+func CreateProject(ctx context.Context, input *FormInput) (*RedirectResponse, error) {
+	parsedInput, err := html.ParseForm[CreateProjectInputParsed](&input.RawBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse form input: %w", err)
+	}
+
 	metadata := make(map[string]string)
-	for i := 0; i < len(input.Body.MetadataKeys) && i < len(input.Body.MetadataValues); i++ {
-		metadata[input.Body.MetadataKeys[i]] = input.Body.MetadataValues[i]
+	for i := 0; i < len(parsedInput.MetadataKeys) && i < len(parsedInput.MetadataValues); i++ {
+		metadata[parsedInput.MetadataKeys[i]] = parsedInput.MetadataValues[i]
 	}
 
 	metadataJSON, err := json.Marshal(metadata)
@@ -340,8 +345,8 @@ func CreateProject(ctx context.Context, input *CreateProjectInput) (*RedirectRes
 	defer tx.Rollback(ctx)
 
 	_, err = q.CreateProject(ctx, db.CreateProjectParams{
-		ProjectCode: strings.ToUpper(input.Body.Code),
-		ProjectName: input.Body.Name,
+		ProjectCode: strings.ToUpper(parsedInput.Code),
+		ProjectName: parsedInput.Name,
 		Metadata:    metadataJSON,
 	})
 	if err != nil {
@@ -352,7 +357,7 @@ func CreateProject(ctx context.Context, input *CreateProjectInput) (*RedirectRes
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	msg := fmt.Sprintf("Project '%s' created successfully!", input.Body.Name)
+	msg := fmt.Sprintf("Project '%s' created successfully!", parsedInput.Name)
 
 	return &RedirectResponse{
 		HXRedirect: "/admin?banner_msg=" + url.QueryEscape(msg),
@@ -360,7 +365,12 @@ func CreateProject(ctx context.Context, input *CreateProjectInput) (*RedirectRes
 }
 
 // POST /api/donors - Creates a new donor
-func CreateDonor(ctx context.Context, input *CreateDonorInput) (*RedirectResponse, error) {
+func CreateDonor(ctx context.Context, input *FormInput) (*RedirectResponse, error) {
+	parsedInput, err := html.ParseForm[CreateDonorInputParsed](&input.RawBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse form input: %w", err)
+	}
+
 	// TODO: Save donor to database
 	q, tx, err := db.NewQueriesWithTx(ctx)
 	if err != nil {
@@ -369,13 +379,13 @@ func CreateDonor(ctx context.Context, input *CreateDonorInput) (*RedirectRespons
 	defer tx.Rollback(ctx)
 
 	//Normalize phone number before saving
-	number, err := utils.NormalizePhoneNumber(input.Body.Phone)
+	number, err := utils.NormalizePhoneNumber(parsedInput.Phone)
 	if err != nil {
 		return nil, fmt.Errorf("failed to normalize phone number: %w", err)
 	}
 
 	_, err = q.CreateDonor(ctx, db.CreateDonorParams{
-		DonorName:   input.Body.Name,
+		DonorName:   parsedInput.Name,
 		PhoneNumber: number,
 	})
 	if err != nil {
@@ -386,7 +396,7 @@ func CreateDonor(ctx context.Context, input *CreateDonorInput) (*RedirectRespons
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	msg := fmt.Sprintf("Donor '%s' created successfully!", input.Body.Name)
+	msg := fmt.Sprintf("Donor '%s' created successfully!", parsedInput.Name)
 
 	return &RedirectResponse{
 		HXRedirect: "/admin?banner_msg=" + url.QueryEscape(msg),
@@ -423,12 +433,15 @@ func SearchDonors(ctx context.Context, input *DonorSearchInput) (*html.HTMLRespo
 }
 
 // POST /api/trees - Creates a new tree
-func CreateTree(ctx context.Context, input *CreateTreeInput) (*RedirectResponse, error) {
-	// TODO: Save tree to database
+func CreateTree(ctx context.Context, input *FormInput) (*RedirectResponse, error) {
+	parsedInput, err := html.ParseForm[CreateTreeInputParsed](&input.RawBody)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse form input: %w", err)
+	}
 
 	metadata := make(map[string]string)
-	for i := 0; i < len(input.Body.MetadataKeys) && i < len(input.Body.MetadataValues); i++ {
-		metadata[input.Body.MetadataKeys[i]] = input.Body.MetadataValues[i]
+	for i := 0; i < len(parsedInput.MetadataKeys) && i < len(parsedInput.MetadataValues); i++ {
+		metadata[parsedInput.MetadataKeys[i]] = parsedInput.MetadataValues[i]
 	}
 
 	metadataJSON, err := json.Marshal(metadata)
@@ -436,8 +449,8 @@ func CreateTree(ctx context.Context, input *CreateTreeInput) (*RedirectResponse,
 		return nil, fmt.Errorf("failed to marshal project metadata: %w", err)
 	}
 	var plantedAt pgtype.Timestamptz
-	if input.Body.DatePlanted != "" {
-		plantedAt.Time, err = time.Parse("2006-01-02", input.Body.DatePlanted)
+	if parsedInput.DatePlanted != "" {
+		plantedAt.Time, err = time.Parse("2006-01-02", parsedInput.DatePlanted)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse date planted: %w", err)
 		} else {
@@ -451,11 +464,11 @@ func CreateTree(ctx context.Context, input *CreateTreeInput) (*RedirectResponse,
 	defer tx.Rollback(ctx)
 
 	_, err = q.CreateTree(ctx, db.CreateTreeParams{
-		ProjectCode:   strings.ToUpper(input.Body.ProjectCode),
-		TreeNumber:    int32(input.Body.TreeNumber),
-		DonorID:       input.Body.DonorID,
-		StMakepoint:   input.Body.Longitude,
-		StMakepoint_2: input.Body.Latitude,
+		ProjectCode:   strings.ToUpper(parsedInput.ProjectCode)[:2],
+		TreeNumber:    int32(parsedInput.TreeNumber),
+		DonorID:       parsedInput.DonorID,
+		StMakepoint:   parsedInput.Latitude,
+		StMakepoint_2: parsedInput.Longitude,
 		PlantedAt:     plantedAt,
 		Metadata:      metadataJSON,
 	})
@@ -467,7 +480,7 @@ func CreateTree(ctx context.Context, input *CreateTreeInput) (*RedirectResponse,
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	msg := fmt.Sprintf("Tree #%d created successfully!", input.Body.TreeNumber)
+	msg := fmt.Sprintf("Tree #%d created successfully!", parsedInput.TreeNumber)
 
 	return &RedirectResponse{
 		HXRedirect: "/admin?banner_msg=" + url.QueryEscape(msg),

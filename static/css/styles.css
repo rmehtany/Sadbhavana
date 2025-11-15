@@ -43,6 +43,15 @@ body {
   padding: 20px;
 }
 
+#detail-panel .tree-image img {
+  max-width: 100%;   /* scale down to fit the panel width */
+  height: auto;      /* keep aspect ratio */
+  display: block;    /* remove inline spacing */
+  border-radius: 4px; /* optional: rounded corners */
+}
+
+
+
 /* Detail panel content */
 .detail-panel h3 {
   font-size: 1.5rem;

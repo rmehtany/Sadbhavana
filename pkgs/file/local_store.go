@@ -75,7 +75,8 @@ func (l *LocalFileStore) UploadFile(ctx context.Context, file FileInfo, data io.
 	file.Size = n
 	file.FileName = filepath.Base(fullPath)
 	file.FileStore = "local"
-	file.FileURL = fmt.Sprintf("file://%s", fullPath)
+
+	file.FileURL = fmt.Sprintf("static/%s", file.FilePath)
 	return file, nil
 }
 
@@ -102,5 +103,5 @@ func (l *LocalFileStore) DeleteFile(ctx context.Context, file FileInfo) error {
 
 // Example constructor
 func NewLocalFileStore() *LocalFileStore {
-	return &LocalFileStore{Root: "file_store"}
+	return &LocalFileStore{Root: "static"}
 }

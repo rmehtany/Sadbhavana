@@ -1,6 +1,7 @@
 package web
 
 import (
+	"mime/multipart"
 	"sadbhavana/tree-project/pkgs/template"
 	"time"
 )
@@ -93,13 +94,11 @@ type ProjectSearchInput struct {
 
 // Request/Response types for Projects
 
-type CreateProjectInput struct {
-	Body struct {
-		Name           string   `json:"name" form:"name"`
-		Code           string   `json:"code" form:"code" pattern:"[A-Za-z]{2}" maxLength:"2" minLength:"2"`
-		MetadataKeys   []string `form:"metadata-key[]"`
-		MetadataValues []string `form:"metadata-value[]"`
-	} `contentType:"application/x-www-form-urlencoded"`
+type CreateProjectInputParsed struct {
+	Name           string   `json:"name" form:"name"`
+	Code           string   `json:"code" form:"code" pattern:"[A-Za-z]{2}" maxLength:"2" minLength:"2"`
+	MetadataKeys   []string `form:"metadata-key[]"`
+	MetadataValues []string `form:"metadata-value[]"`
 }
 
 type RedirectResponse struct {
@@ -108,11 +107,9 @@ type RedirectResponse struct {
 
 // Request/Response types for Donors
 
-type CreateDonorInput struct {
-	Body struct {
-		Name  string `json:"name" form:"name"`
-		Phone string `json:"phone" form:"phone"`
-	} `contentType:"application/x-www-form-urlencoded"`
+type CreateDonorInputParsed struct {
+	Name  string `json:"name" form:"name"`
+	Phone string `json:"phone" form:"phone"`
 }
 
 type DonorSearchInput struct {
@@ -121,15 +118,17 @@ type DonorSearchInput struct {
 
 // Request/Response types for Trees
 
-type CreateTreeInput struct {
-	Body struct {
-		ProjectCode    string   `json:"project_code" form:"project_code"`
-		TreeNumber     int      `json:"tree_number" form:"tree_number" minimum:"1"`
-		DonorID        string   `json:"donor_id" form:"donor_id"`
-		Latitude       float64  `json:"latitude" form:"latitude" minimum:"-90" maximum:"90"`
-		Longitude      float64  `json:"longitude" form:"longitude" minimum:"-180" maximum:"180"`
-		DatePlanted    string   `json:"date_planted" form:"date_planted"`
-		MetadataKeys   []string `form:"metadata-key[]"`
-		MetadataValues []string `form:"metadata-value[]"`
-	} `contentType:"application/x-www-form-urlencoded"`
+type FormInput struct {
+	RawBody multipart.Form
+}
+
+type CreateTreeInputParsed struct {
+	ProjectCode    string   `json:"project_code" form:"project_search"`
+	TreeNumber     int      `json:"tree_number" form:"tree_number" minimum:"1"`
+	DonorID        string   `json:"donor_id" form:"donor_id"`
+	Latitude       float64  `json:"latitude" form:"latitude" minimum:"-90" maximum:"90"`
+	Longitude      float64  `json:"longitude" form:"longitude" minimum:"-180" maximum:"180"`
+	DatePlanted    string   `json:"date_planted" form:"date_planted"`
+	MetadataKeys   []string `form:"metadata-key[]"`
+	MetadataValues []string `form:"metadata-value[]"`
 }
