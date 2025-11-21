@@ -8,7 +8,7 @@ const MapManager = {
   donorID: '',   // <-- donorID stored here
 
   // Initialize the map
-  init(lat = 40.7128, lng = -74.0060, zoom = 10) {
+  init(lat = 20.5937, lng = 78.9629, zoom = 5) {
     // Check for URL parameters to override defaults
     const params = new URLSearchParams(window.location.search);
     const urlLat = params.get('lat');
