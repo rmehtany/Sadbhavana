@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sadbhavana/tree-project/pkgs/utils"
 	"strings"
 
@@ -95,7 +96,17 @@ func (d *DotEnvProvider) Lookup(ctx context.Context, key string) (string, bool) 
 func (d *DotEnvProvider) loadFromFile(filePath string) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return // .env file is optional
+		// Try fallback: check for the file next to the executable (useful when working directory differs)
+		if exePath, serr := os.Executable(); serr == nil {
+			alt := filepath.Join(filepath.Dir(exePath), filePath)
+			if d2, err2 := os.ReadFile(alt); err2 == nil {
+				data = d2
+			} else {
+				return // .env file is optional
+			}
+		} else {
+			return // .env file is optional
+		}
 	}
 
 	lines := strings.Split(string(data), "\n")
