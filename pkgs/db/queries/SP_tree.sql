@@ -42,6 +42,7 @@ BEGIN
 	)
 	INTO p_output_json
 	FROM aggregated_trees;
+	raise notice 'Hello';
 
     -- Return empty array if no output
     IF p_output_json IS NULL THEN
