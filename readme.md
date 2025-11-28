@@ -12,6 +12,7 @@ project/
 │   │   ├── projects.sql      # Project management
 │   │   ├── donors.sql     # Donor management
 │   │   └── tree_updates.sql # Tree updates & files
+│   │   ├── SP_tree.sql      # ⭐ Core clustering queries
 │   ├── migrations/
 │   │   └── 20251110182154_init.sql  # Schema with PostGIS
 │   ├── conn.go            # Database connection with singleton pattern
