@@ -1,133 +1,166 @@
-# Tree Mapping Project - Implementation Summary
+# Sadbhavana Tree Project Management System
 
-A complete **Go + HTMX + PostGIS** tree mapping application with server-side clustering, following the minimal JavaScript philosophy.
+A comprehensive tree tracking and donor management platform for [Sadbhavana Vruddhashram](https://sadbhavnadham.org/), supporting their mission to plant and nurture over 151 crore trees across India.
 
-## Project Structure
+## Goals of the Project
 
-```
-project/
-├── db/
-│   ├── queries/           # SQL query files for sqlc
-│   │   ├── trees.sql      # ⭐ Core clustering queries
-│   │   ├── projects.sql      # Project management
-│   │   ├── donors.sql     # Donor management
-│   │   └── tree_updates.sql # Tree updates & files
-│   │   ├── SP_tree.sql      # ⭐ Core clustering queries
-│   ├── migrations/
-│   │   └── 20251110182154_init.sql  # Schema with PostGIS
-│   ├── conn.go            # Database connection with singleton pattern
-|   └── sqlc.yaml          # Sqlc configuration
-├── web/                   # HTTP handlers module
-│   ├── models.go          # Request/response DTOs
-│   ├── handlers.go        # Business logic & clustering
-│   └── endpoints.go       # Huma route registration
-└── main.go                # Application entry point
-```
+Sadbhavana's tree plantation initiative goes beyond simply planting trees—it's about creating lasting environmental impact through careful nurturing and transparent tracking. This project aims to:
 
-## Key Implementation Details
+1. **Enable Transparent Donor Engagement**: Allow donors to see exactly where their contributions are making an impact, with geographic visualization of tree planting projects and individual trees.
 
-**Three Clustering Strategies:**
+2. **Streamline Administrative Operations**: Provide administrators with efficient tools to manage donor records, tree planting projects, and individual tree data at scale.
 
-1. **Project Clusters** (zoom 1-8): `GetTreesByProjectCluster`
-   - Groups by project
-   - Returns aggregate counts and center points
+3. **Facilitate Tree Monitoring & Care**: Support Sadbhavana's unique commitment to nurturing each tree for at least 4 years through automated image processing and tracking via WhatsApp integration.
 
-2. **Grid Clusters** (zoom 9-12): `GetTreesByGridCluster`
-   - Uses `ST_SnapToGrid` for spatial clustering
-   - Dynamic grid size based on zoom level
+4. **Build Community Connection**: Create a visual, interactive map that connects donors, volunteers, and the public with the environmental restoration happening across villages in Gujarat and beyond.
 
-3. **Individual Trees** (zoom 13+): `GetIndividualTrees`
-   - Returns actual tree locations
-   - Includes donor and project details
-   - Limited to 1000 for performance
+5. **Ensure Long-term Accountability**: Maintain comprehensive records with photographic evidence of each tree's growth, supporting Sadbhavana's promise that "planting trees is easy, but caring for them is difficult—and we take complete responsibility."
 
-### 2. Web Module (`web/`)
+## Getting Started
 
-**models.go** - Type Definitions:
-- `GetMarkersInput` - Viewport bounds validation
-- `Marker` - Unified marker structure for all types
-- `TreeDetail` - Complete tree information
-- `ClusterDetail` - Project statistics
-- `MarkerType` enum - project-cluster, grid-cluster, tree
+### Prerequisites
 
-**handlers.go** - Business Logic:
-- `GetMarkers()` - Routes to appropriate clustering method
-- `calculateGridSize()` - Dynamic grid sizing formula
-- Conversion functions for DB → API types
-- JSON metadata parsing
+- **Docker Desktop** (installation instructions below)
+- **Git** for cloning the repository
+- **.env file** from project maintainer (Rushabh)
 
-**endpoints.go** - HTTP Routes:
-- Uses `db.NewQueries(ctx)` for singleton connection
-- Returns HTML fragments with data attributes
-- Inline templates for markers, tree details, cluster details
+### Installation Steps
 
-### 4. Architecture Decisions
+#### 1. Clone the Repository
 
-✅ **Server-Side Clustering** - All clustering logic in Go/PostgreSQL  
-✅ **Named SQL Parameters** - Better generated Go code  
-✅ **Singleton DB Connection** - Efficient connection pooling  
-✅ **HTML Fragments** - HTMX-friendly responses  
-✅ **Type Safety** - Huma validates all inputs  
-✅ **String IDs** - Uses nanoid format (CHAR(21))  
-
-## API Endpoints
-
-### GET /api/markers
-Returns clustered or individual markers based on zoom level.
-
-**Query Parameters:**
-- `north`, `south`, `east`, `west` (float64, -90 to 90, -180 to 180)
-- `zoom` (int, 1-20)
-
-**Response:** HTML fragment with data attributes
-```html
-<div id="marker-container">
-  <div class="marker-data" data-type="..." data-lat="..." ...></div>
-</div>
+```bash
+git clone <repository-url>
+cd <repository-name>
 ```
 
-### GET /api/tree/{id}
-Returns detailed information about a specific tree.
+#### 2. Install Docker Desktop
 
-**Path Parameter:**
-- `id` (string, 21 chars, pattern: `TRE_[A-Za-z0-9_-]{17}`)
+**For macOS users:**
+1. Visit [https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/)
+2. Download Docker Desktop for Mac
+3. Open the downloaded `.dmg` file and drag Docker to Applications
+4. Launch Docker from Applications
 
-**Response:** HTML detail panel
+**For Windows users:**
+1. Visit [https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/)
+2. Download Docker Desktop for Windows
+3. Run the installer
+4. **Important**: Reboot your computer after installation
+   - **Note for some users**: During the reboot, you may need to enter your system's BIOS/UEFI settings to enable virtualization (VT-x/AMD-V). This varies by manufacturer:
+     - Press `F2`, `F10`, `Del`, or `F12` during boot (check your PC's startup screen)
+     - Navigate to "Advanced" or "CPU Configuration"
+     - Enable "Intel Virtualization Technology" or "AMD-V"
+     - Save and exit
+5. Launch Docker Desktop after reboot
 
-### GET /api/cluster/{projectCode}
-Returns statistics for a project cluster.
+#### 3. Configure Environment Variables
 
-**Path Parameter:**
-- `projectCode` (string, 2 chars)
+1. Obtain the `.env` file from Rushabh
+2. Place the `.env` file in the root directory of the repository
 
-**Response:** HTML detail panel with aggregations
+#### 4. Start the Application
 
-## How It Works Together
-
-```
-1. User pans/zooms map
-   ↓
-2. JavaScript reads map bounds and zoom
-   ↓
-3. HTMX sends GET /api/markers?north=...&zoom=...
-   ↓
-4. Go handler determines clustering strategy
-   ↓
-5. PostGIS executes spatial query with clustering
-   ↓
-6. Go converts DB results → Marker DTOs
-   ↓
-7. Go renders HTML fragment with data attributes
-   ↓
-8. HTMX swaps HTML into #marker-container
-   ↓
-9. JavaScript reads data attributes and creates Leaflet markers
+```bash
+docker compose up
 ```
 
-## Performance Characteristics
+This command will:
+- Start PostgreSQL with PostGIS extension
+- Launch the Go backend server with HTMX/templ
+- Set up ngrok for WhatsApp webhook (local development only)
 
-- **Zoom 1-8**: ~10-50 project clusters (milliseconds)
-- **Zoom 9-12**: ~50-200 grid clusters (tens of milliseconds)  
-- **Zoom 13+**: Up to 1000 individual trees (hundreds of milliseconds)
-- **Spatial Index**: GIST index makes all queries fast
-- **Connection Pool**: 5-30 connections, reused efficiently
+#### 5. Access the Application
+
+Once the containers are running, navigate to:
+- **Map View**: [http://localhost:8080/map](http://localhost:8080/map)
+- **Admin Panel**: [http://localhost:8080/admin](http://localhost:8080/admin)
+
+## System Overview
+
+### Technology Stack
+
+- **Database**: PostgreSQL with PostGIS extension for geospatial data
+- **Backend**: Go (Golang)
+- **Frontend**: HTMX + templ for server-side rendering
+- **Database Access**: SQLc (migrating to stored procedures for better encapsulation)
+- **Local Development**: Docker Compose + ngrok (for webhook tunneling)
+
+### Key Features & Workflows
+
+#### 1. Admin Panel (`/admin`)
+
+Administrators can:
+- **Create and manage donor records**: Track contributions and donor information
+- **Create tree planting projects**: Define geographic areas and project details
+- **Create tree records**: Log individual trees with GPS coordinates, species, planting date, and photos
+- **View dashboards**: Monitor project progress and tree survival rates
+
+#### 2. Interactive Map View (`/map`)
+
+Public-facing interface that allows:
+- **Explore planting projects**: See all active and completed tree planting initiatives on an interactive map
+- **View individual trees**: Click on tree markers to see photos, species information, planting date, and growth updates
+- **Donor transparency**: See which donors contributed to specific projects
+- **Filter and search**: Find projects by location, date, or species
+
+#### 3. WhatsApp Integration (Webhook)
+
+Automated tree monitoring system:
+- **Receive images**: WhatsApp webhook accepts photos of trees sent by field staff
+- **AI-powered analysis**: Images are processed via Google Gemini to identify which tree record they belong to
+- **Automatic updates**: Database is updated with new photos and timestamps
+- **Status tracking**: Helps verify that trees are being properly maintained during the critical 4-year nurturing period
+
+### Architecture Diagram
+
+```
+┌─────────────┐
+│   Donors &  │
+│   Public    │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────────┐      ┌──────────────┐
+│  HTMX Frontend  │◄────►│ Go Backend   │
+│  (Map + Admin)  │      │ (templ)      │
+└─────────────────┘      └──────┬───────┘
+                                │
+                    ┌───────────┼───────────┐
+                    ▼           ▼           ▼
+              ┌──────────┐ ┌──────┐  ┌──────────┐
+              │PostgreSQL│ │Gemini│  │ WhatsApp │
+              │+ PostGIS │ │  AI  │  │ Webhook  │
+              └──────────┘ └──────┘  └──────────┘
+```
+
+### Database Migration Strategy
+
+The project is currently transitioning from SQLc-generated queries to stored procedures:
+- **Current**: SQLc for type-safe SQL query generation
+- **Target**: PostgreSQL stored procedures for better:
+  - Encapsulation of business logic
+  - Performance optimization
+  - Easier maintenance and testing
+  - Clearer API boundaries
+
+## Development Status
+
+### Current State
+✅ Admin panel for data management  
+✅ Interactive map with tree/project visualization  
+✅ WhatsApp webhook with AI image processing  
+✅ Local development environment via Docker Compose  
+
+### TODO
+⏳ Production deployment setup  
+⏳ Complete migration to stored procedures  
+
+## Contributing
+
+This project supports Sadbhavana Vruddhashram's mission to make India greener by planting and nurturing trees with complete responsibility. Every contribution helps create transparency and efficiency in environmental restoration.
+
+For questions or access to the `.env` file, contact Rushabh.
+
+---
+
+*"Planting trees is easy, but caring for them is difficult. At Sadbhavana, we take complete responsibility for their maintenance."* — Sadbhavana Vruddhashram
