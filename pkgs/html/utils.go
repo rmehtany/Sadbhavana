@@ -9,7 +9,14 @@ import (
 	"strconv"
 
 	"github.com/a-h/templ"
+	"github.com/go-playground/validator/v10"
 )
+
+var Validate = validator.New()
+
+func ValidateStruct(s any) error {
+	return Validate.Struct(s)
+}
 
 type HTMLResponse struct {
 	Body        []byte

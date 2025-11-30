@@ -106,24 +106,25 @@ func (h *Handlers) getGridClusterMarkers(ctx context.Context, input *GetMarkersI
 	var markers []template.Marker
 
 	if input.DonorID == "" {
-		rows, err := h.queries.GetTreesByGridCluster(ctx, db.GetTreesByGridClusterParams{
-			SouthLat: input.South,
-			NorthLat: input.North,
-			WestLng:  input.West,
-			EastLng:  input.East,
-			GridSize: gridSize,
+		clusters, err := db.GetTreeClusters(ctx, h.queries, db.GetTreeClustersInput{
+			Zoom:      input.Zoom,
+			East_Lng:  input.East,
+			West_Lng:  input.West,
+			South_Lat: input.South,
+			North_Lat: input.North,
 		})
 		if err != nil {
 			return nil, err
 		}
-		markers = make([]template.Marker, 0, len(rows))
-		for _, row := range rows {
+
+		markers = make([]template.Marker, 0, len(clusters.Clusters))
+		for _, cluster := range clusters.Clusters {
 			markers = append(markers, template.Marker{
 				Type:    template.MarkerTypeGridCluster,
-				Lat:     row.GridLat,
-				Lng:     row.GridLng,
-				Count:   row.TreeCount,
-				TreeIDs: row.TreeIds,
+				Lat:     cluster.Grid_Lat,
+				Lng:     cluster.Grid_Lng,
+				Count:   cluster.TreeCount,
+				TreeIDs: cluster.TreeIDs,
 			})
 		}
 	} else {

@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"sadbhavana/tree-project/pkgs/conf"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -44,5 +46,36 @@ func GooseMigrateUp(cfg conf.PostgresConfig) error {
 		return fmt.Errorf("failed to run migrations: %w", err)
 	}
 	log.Printf("✅ Database migrations applied successfully")
+
+	// Execute stored procedures
+	proceduresDir := "pkgs/db/procedures"
+	if err := executeSQLFiles(db, proceduresDir); err != nil {
+		return fmt.Errorf("failed to create stored procedures: %w", err)
+	}
+	log.Printf("✅ Stored procedures created/updated successfully")
+
+	return nil
+}
+
+func executeSQLFiles(db *sql.DB, dir string) error {
+	// Read all .sql files from the directory
+	files, err := filepath.Glob(filepath.Join(dir, "*.sql"))
+	if err != nil {
+		return fmt.Errorf("failed to read SQL files: %w", err)
+	}
+
+	// Execute each SQL file
+	for _, file := range files {
+		content, err := os.ReadFile(file)
+		if err != nil {
+			return fmt.Errorf("failed to read file %s: %w", file, err)
+		}
+
+		if _, err := db.Exec(string(content)); err != nil {
+			return fmt.Errorf("failed to execute %s: %w", file, err)
+		}
+		log.Printf("  Executed: %s", filepath.Base(file))
+	}
+
 	return nil
 }
