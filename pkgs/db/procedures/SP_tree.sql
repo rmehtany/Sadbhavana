@@ -30,7 +30,7 @@ BEGIN
 	FROM 
 		(SELECT 
 		    t.project_code,
-		    min(tw.project_name) AS project_name,
+		    min(tw.project_name) AS project_name,	-- Fake AGGR
 		    COUNT(*) as tree_count,
 		    AVG(ST_Y(t.tree_location::geometry))::FLOAT as center_lat,
 		    AVG(ST_X(t.tree_location::geometry))::FLOAT as center_lng
