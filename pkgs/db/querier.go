@@ -54,8 +54,6 @@ type Querier interface {
 	GetTreeUpdateFiles(ctx context.Context, treeID string) ([]CoreFile, error)
 	// Get all updates for a specific tree
 	GetTreeUpdates(ctx context.Context, treeID string) ([]GetTreeUpdatesRow, error)
-	// Zoom levels 9-12: Grid-based clustering for medium zoom
-	GetTreesByGridCluster(ctx context.Context, arg GetTreesByGridClusterParams) ([]GetTreesByGridClusterRow, error)
 	// Zoom levels 1-8: Get tree counts grouped by project
 	GetTreesByProjectCluster(ctx context.Context, arg GetTreesByProjectClusterParams) ([]GetTreesByProjectClusterRow, error)
 	// Get all trees in a specific project

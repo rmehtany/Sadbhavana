@@ -27,27 +27,6 @@ WHERE ST_Y(t.tree_location::geometry) BETWEEN sqlc.arg(south_lat) AND sqlc.arg(n
   AND t.donor_id = sqlc.arg(donor_id)
 GROUP BY t.project_code, tw.project_name;
 
--- name: GetTreesByGridCluster :many
--- Zoom levels 9-12: Grid-based clustering for medium zoom
-WITH params AS (
-    SELECT 
-        @grid_size::float8 as grid_size,
-        @west_lng::float8 as west_lng,
-        @south_lat::float8 as south_lat,
-        @east_lng::float8 as east_lng,
-        @north_lat::float8 as north_lat
-)
-SELECT 
-    ST_Y(ST_SnapToGrid(t.tree_location::geometry, p.grid_size, p.grid_size))::FLOAT as grid_lat,
-    ST_X(ST_SnapToGrid(t.tree_location::geometry, p.grid_size, p.grid_size))::FLOAT as grid_lng,
-    COUNT(*) as tree_count,
-    ARRAY_AGG(t.id)::VARCHAR[] as tree_ids
-FROM core.tree t
-CROSS JOIN params p
-WHERE t.tree_location && ST_MakeEnvelope(p.west_lng, p.south_lat, p.east_lng, p.north_lat, 4326)::geography
-GROUP BY ST_SnapToGrid(t.tree_location::geometry, p.grid_size, p.grid_size)
-HAVING COUNT(*) > 0;
-
 -- name: GetDonorTreesByGridCluster :many
 -- Zoom levels 9-12: Grid-based clustering for medium zoom
 WITH params AS (
