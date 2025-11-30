@@ -51,7 +51,7 @@ func (h *Handlers) GetMarkers(ctx context.Context, input *GetMarkersInput) ([]te
 func (h *Handlers) getProjectClusterMarkers(ctx context.Context, input *GetMarkersInput) ([]template.Marker, error) {
 	var markers []template.Marker
 	if input.DonorID == "" {
-		rows, err := h.queries.GetTreesByProjectCluster(ctx, db.GetTreesByProjectClusterParams{
+		clusters, err := db.GetTreesByProjectCluster(ctx, h.queries, db.GetTreesByProjectClusterInput{
 			SouthLat: input.South,
 			NorthLat: input.North,
 			WestLng:  input.West,
@@ -61,15 +61,15 @@ func (h *Handlers) getProjectClusterMarkers(ctx context.Context, input *GetMarke
 			return nil, err
 		}
 
-		markers = make([]template.Marker, 0, len(rows))
-		for _, row := range rows {
+		markers = make([]template.Marker, 0, len(clusters.Clusters))
+		for _, cluster := range clusters.Clusters {
 			markers = append(markers, template.Marker{
 				Type:  template.MarkerTypeProjectCluster,
-				Lat:   row.CenterLat,
-				Lng:   row.CenterLng,
-				Count: row.TreeCount,
-				ID:    row.ProjectCode,
-				Label: row.ProjectName,
+				Lat:   cluster.CenterLat,
+				Lng:   cluster.CenterLng,
+				Count: cluster.TreeCount,
+				ID:    cluster.ProjectCode,
+				Label: cluster.ProjectName,
 			})
 		}
 	} else {
@@ -106,12 +106,12 @@ func (h *Handlers) getGridClusterMarkers(ctx context.Context, input *GetMarkersI
 	var markers []template.Marker
 
 	if input.DonorID == "" {
-		clusters, err := db.GetTreeClusters(ctx, h.queries, db.GetTreeClustersInput{
-			Zoom:      input.Zoom,
-			East_Lng:  input.East,
-			West_Lng:  input.West,
-			South_Lat: input.South,
-			North_Lat: input.North,
+		clusters, err := db.GetTreesByGridCluster(ctx, h.queries, db.GetTreesByGridClusterInput{
+			Zoom:     input.Zoom,
+			EastLng:  input.East,
+			WestLng:  input.West,
+			SouthLat: input.South,
+			NorthLat: input.North,
 		})
 		if err != nil {
 			return nil, err
@@ -121,8 +121,8 @@ func (h *Handlers) getGridClusterMarkers(ctx context.Context, input *GetMarkersI
 		for _, cluster := range clusters.Clusters {
 			markers = append(markers, template.Marker{
 				Type:    template.MarkerTypeGridCluster,
-				Lat:     cluster.Grid_Lat,
-				Lng:     cluster.Grid_Lng,
+				Lat:     cluster.GridLat,
+				Lng:     cluster.GridLng,
 				Count:   cluster.TreeCount,
 				TreeIDs: cluster.TreeIDs,
 			})

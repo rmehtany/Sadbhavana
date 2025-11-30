@@ -1,5 +1,5 @@
 -- Create the stored procedure with transaction management
-CREATE OR REPLACE PROCEDURE P_GetProjectTreeCnts(
+CREATE OR REPLACE PROCEDURE P_GetTreesByProjectCluster(
     IN p_input_json JSONB,
     INOUT p_output_json JSONB DEFAULT NULL
 )
@@ -17,14 +17,18 @@ BEGIN
 	v_north_lat = p_input_json->>'north_lat';
 	v_south_lat = p_input_json->>'south_lat';
 
-	SELECT jsonb_agg(
-	    jsonb_build_object(
-	        'project_code', project_code,
-	        'project_name', project_name,
-	        'tree_count', tree_count,
-	        'center_lat', center_lat,
-	        'center_lng', center_lng
-	    )
+	SELECT jsonb_build_object('clusters', 
+        COALESCE(
+            jsonb_agg(
+                jsonb_build_object(
+                    'project_code', project_code,
+                    'project_name', project_name,
+                    'tree_count', tree_count,
+                    'center_lat', center_lat,
+                    'center_lng', center_lng
+                )
+            ), '[]'::jsonb
+        )
 	)
 	INTO p_output_json
 	FROM 
@@ -58,7 +62,7 @@ END;
 $BODY$;
 
 -- Create the stored procedure with transaction management
-CREATE OR REPLACE PROCEDURE P_GetTreeClusters(
+CREATE OR REPLACE PROCEDURE P_GetTreesByGridCluster(
     IN p_input_json JSONB,
     INOUT p_output_json JSONB DEFAULT NULL
 )
@@ -74,7 +78,7 @@ DECLARE
     v_south_lat FLOAT8;
 BEGIN
     v_zoom = p_input_json->>'zoom';
-    v_gridSize = 0.1 / power(2, v_zoom-8);
+    v_gridSize = 0.1 / power(2, v_zoom-10);
     v_east_lng = p_input_json->>'east_lng';
     v_west_lng = p_input_json->>'west_lng';
     v_north_lat = p_input_json->>'north_lat';
