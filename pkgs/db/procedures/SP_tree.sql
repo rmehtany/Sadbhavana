@@ -1,5 +1,5 @@
 -- Create the stored procedure with transaction management
-CREATE OR REPLACE PROCEDURE P_GetTreesByProjectCluster(
+CREATE OR REPLACE PROCEDURE core.P_GetTreesByProjectCluster(
     IN p_input_json JSONB,
     INOUT p_output_json JSONB DEFAULT NULL
 )
@@ -62,7 +62,7 @@ END;
 $BODY$;
 
 -- Create the stored procedure with transaction management
-CREATE OR REPLACE PROCEDURE P_GetTreesByGridCluster(
+CREATE OR REPLACE PROCEDURE core.P_GetTreesByGridCluster(
     IN p_input_json JSONB,
     INOUT p_output_json JSONB DEFAULT NULL
 )

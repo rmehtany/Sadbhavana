@@ -2,7 +2,7 @@ DO $RUN$
 DECLARE
     v_output JSONB;
 BEGIN
-    CALL P_GetProjectTreeCnts (
+    CALL core.P_GetTreesByProjectCluster (
     '{
 		  "east_lng": 84.5947265625,
 		  "west_lng": 63.50097656250001,
@@ -21,7 +21,7 @@ DO $RUN$
 DECLARE
     v_output JSONB;
 BEGIN
-    CALL P_GetTreeClusters (
+    CALL core.P_GetTreesByGridCluster (
     '{
 		  "zoom": 7,
 		  "east_lng": 84.5947265625,
