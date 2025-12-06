@@ -22,7 +22,7 @@ type GridTreeCluster struct {
 }
 
 func GetTreesByGridCluster(ctx context.Context, q *Queries, input GetTreesByGridClusterInput) (GetTreesByGridClusterOutput, error) {
-	return callProcedureWithJSON[GetTreesByGridClusterInput, GetTreesByGridClusterOutput](ctx, q, "core.P_GetTreesByGridCluster", input)
+	return callProcedureWithJSON[GetTreesByGridClusterInput, GetTreesByGridClusterOutput](ctx, q, "core", "P_GetTreesByGridCluster", input)
 }
 
 type GetTreesByProjectClusterInput struct {
@@ -45,5 +45,5 @@ type GetTreesByProjectClusterOutput struct {
 }
 
 func GetTreesByProjectCluster(ctx context.Context, q *Queries, input GetTreesByProjectClusterInput) (GetTreesByProjectClusterOutput, error) {
-	return callProcedureWithJSON[GetTreesByProjectClusterInput, GetTreesByProjectClusterOutput](ctx, q, "core.P_GetTreesByProjectCluster", input)
+	return callProcedureWithJSON[GetTreesByProjectClusterInput, GetTreesByProjectClusterOutput](ctx, q, "core", "P_GetTreesByProjectCluster", input)
 }
