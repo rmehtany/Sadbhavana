@@ -1,5 +1,6 @@
 services:
   app:
+    container_name: app   # 👈 fixed name for the app container
     build:
       context: .
       dockerfile: Dockerfile.dev
@@ -14,6 +15,7 @@ services:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/treemap?sslmode=disable
 
   db:
+    container_name: db    # 👈 fixed name for the db container
     image: postgis/postgis:17-3.4   # Postgres 17 with PostGIS 3.4
     restart: unless-stopped
     environment:
@@ -27,7 +29,7 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d treemap"]
       interval: 2s
-      timeout: 2s
+      timeout: 5s
       retries: 5
 
 volumes:
