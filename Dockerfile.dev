@@ -2,6 +2,13 @@ FROM golang:1.25
 
 WORKDIR /app
 
+# Install gopls (Go language server) and Delve (debugger)
+RUN go install golang.org/x/tools/gopls@latest \
+    && go install github.com/go-delve/delve/cmd/dlv@latest
+
+# Ensure Go binaries are on PATH
+ENV PATH="${PATH}:/go/bin"
+
 # Copy go mod files first for better caching
 COPY go.mod go.sum* ./
 RUN go mod download 2>/dev/null || true

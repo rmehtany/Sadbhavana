@@ -1,0 +1,21 @@
+{
+  "go.alternateTools": {
+    "go": "docker exec -i app go",
+    "gopls": "docker exec -i app gopls",
+    "dlv": "docker exec -i app dlv"
+  },
+
+  "go.toolsEnvVars": {
+    "GOROOT": "/usr/local/go",
+    "GOPATH": "/go",
+    "PATH": "/usr/local/go/bin:/go/bin:/usr/local/bin:/usr/bin:/bin"
+  },
+
+  "go.formatTool": "gofmt",
+  "go.lintTool": "golint",
+
+  "gopls": {
+    "usePlaceholders": true,
+    "staticcheck": true
+  }
+}
