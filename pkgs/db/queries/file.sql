@@ -28,11 +28,6 @@ RETURNING
     id,
     (xmax != 0) AS was_updated;
 
--- name: GetFileByID :one
-SELECT *
-FROM core.file
-WHERE id = sqlc.arg(file_id);
-
 -- name: GetLatestTreeUpdateFile :one
 SELECT tu.update_date, f.*
 FROM core.file AS f
@@ -40,10 +35,3 @@ FROM core.file AS f
 WHERE tu.tree_id = sqlc.arg(tree_id)
 ORDER BY tu.update_date DESC
 LIMIT 1;
-
--- name: GetTreeUpdateFiles :many
-SELECT f.*
-FROM core.file AS f
-    JOIN core.tree_update AS tu ON f.id = tu.file_id
-WHERE tu.tree_id = sqlc.arg(tree_id)
-ORDER BY tu.update_date DESC;

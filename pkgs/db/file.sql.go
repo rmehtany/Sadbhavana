@@ -11,28 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const getFileByID = `-- name: GetFileByID :one
-SELECT id, file_store, file_store_id, file_path, file_name, file_type, file_url, file_expiration
-FROM core.file
-WHERE id = $1
-`
-
-func (q *Queries) GetFileByID(ctx context.Context, fileID string) (CoreFile, error) {
-	row := q.db.QueryRow(ctx, getFileByID, fileID)
-	var i CoreFile
-	err := row.Scan(
-		&i.ID,
-		&i.FileStore,
-		&i.FileStoreID,
-		&i.FilePath,
-		&i.FileName,
-		&i.FileType,
-		&i.FileUrl,
-		&i.FileExpiration,
-	)
-	return i, err
-}
-
 const getLatestTreeUpdateFile = `-- name: GetLatestTreeUpdateFile :one
 SELECT tu.update_date, f.id, f.file_store, f.file_store_id, f.file_path, f.file_name, f.file_type, f.file_url, f.file_expiration
 FROM core.file AS f
@@ -69,43 +47,6 @@ func (q *Queries) GetLatestTreeUpdateFile(ctx context.Context, treeID string) (G
 		&i.FileExpiration,
 	)
 	return i, err
-}
-
-const getTreeUpdateFiles = `-- name: GetTreeUpdateFiles :many
-SELECT f.id, f.file_store, f.file_store_id, f.file_path, f.file_name, f.file_type, f.file_url, f.file_expiration
-FROM core.file AS f
-    JOIN core.tree_update AS tu ON f.id = tu.file_id
-WHERE tu.tree_id = $1
-ORDER BY tu.update_date DESC
-`
-
-func (q *Queries) GetTreeUpdateFiles(ctx context.Context, treeID string) ([]CoreFile, error) {
-	rows, err := q.db.Query(ctx, getTreeUpdateFiles, treeID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []CoreFile{}
-	for rows.Next() {
-		var i CoreFile
-		if err := rows.Scan(
-			&i.ID,
-			&i.FileStore,
-			&i.FileStoreID,
-			&i.FilePath,
-			&i.FileName,
-			&i.FileType,
-			&i.FileUrl,
-			&i.FileExpiration,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const upsertFile = `-- name: UpsertFile :one

@@ -18,60 +18,18 @@ type Querier interface {
 	CreateTree(ctx context.Context, arg CreateTreeParams) (CreateTreeRow, error)
 	// Insert a new tree update
 	CreateTreeUpdate(ctx context.Context, arg CreateTreeUpdateParams) (CoreTreeUpdate, error)
-	DeleteProject(ctx context.Context, projectCode string) error
-	// Delete a specific tree update
-	DeleteTreeUpdate(ctx context.Context, arg DeleteTreeUpdateParams) error
 	// Get detailed statistics for a project cluster
 	GetClusterDetail(ctx context.Context, projectCode string) (GetClusterDetailRow, error)
-	// Get a single donor by ID
-	GetDonor(ctx context.Context, id string) (CoreDonor, error)
-	// Get a donor by phone_number
-	GetDonorByPhoneNumber(ctx context.Context, phoneNumber string) (CoreDonor, error)
-	// Zoom levels 13+: Return individual trees with details
-	GetDonorIndividualTrees(ctx context.Context, arg GetDonorIndividualTreesParams) ([]GetDonorIndividualTreesRow, error)
-	// Zoom levels 9-12: Grid-based clustering for medium zoom
-	GetDonorTreesByGridCluster(ctx context.Context, arg GetDonorTreesByGridClusterParams) ([]GetDonorTreesByGridClusterRow, error)
-	// Zoom levels 1-8: Get tree counts grouped by project
-	GetDonorTreesByProjectCluster(ctx context.Context, arg GetDonorTreesByProjectClusterParams) ([]GetDonorTreesByProjectClusterRow, error)
-	// Get donor with their tree count
-	GetDonorWithTreeCount(ctx context.Context, id string) (GetDonorWithTreeCountRow, error)
-	GetFileByID(ctx context.Context, fileID string) (CoreFile, error)
-	// Zoom levels 13+: Return individual trees with details
-	GetIndividualTrees(ctx context.Context, arg GetIndividualTreesParams) ([]GetIndividualTreesRow, error)
 	// Get the most recent update for a tree
 	GetLatestTreeUpdate(ctx context.Context, treeID string) (GetLatestTreeUpdateRow, error)
 	GetLatestTreeUpdateFile(ctx context.Context, treeID string) (GetLatestTreeUpdateFileRow, error)
-	GetProject(ctx context.Context, projectCode string) (CoreProject, error)
-	GetProjectWithTreeCount(ctx context.Context, projectCode string) (GetProjectWithTreeCountRow, error)
-	// Get recent updates across all trees
-	GetRecentUpdates(ctx context.Context, limit int32) ([]GetRecentUpdatesRow, error)
 	// Get a single tree by ID with full details
 	GetTreeByID(ctx context.Context, id string) (GetTreeByIDRow, error)
 	// Get a single tree by project code and tree number
 	GetTreeByProjectCodeAndNumber(ctx context.Context, arg GetTreeByProjectCodeAndNumberParams) (GetTreeByProjectCodeAndNumberRow, error)
-	// Get total tree count, optionally filtered by project
-	GetTreeCount(ctx context.Context, dollar_1 string) (int64, error)
-	GetTreeUpdateFiles(ctx context.Context, treeID string) ([]CoreFile, error)
-	// Get all updates for a specific tree
-	GetTreeUpdates(ctx context.Context, treeID string) ([]GetTreeUpdatesRow, error)
-	// Zoom levels 1-8: Get tree counts grouped by project
-	GetTreesByProjectCluster(ctx context.Context, arg GetTreesByProjectClusterParams) ([]GetTreesByProjectClusterRow, error)
-	// Get all trees in a specific project
-	GetTreesByProjectCode(ctx context.Context, projectCode string) ([]GetTreesByProjectCodeRow, error)
-	// Get trees with their update counts
-	GetTreesWithUpdateCount(ctx context.Context, dollar_1 string) ([]GetTreesWithUpdateCountRow, error)
-	// Get all donors
-	ListDonors(ctx context.Context) ([]CoreDonor, error)
-	// Get all donors with their tree counts
-	ListDonorsWithTreeCounts(ctx context.Context) ([]ListDonorsWithTreeCountsRow, error)
-	ListProjects(ctx context.Context) ([]CoreProject, error)
-	ListProjectsWithTreeCounts(ctx context.Context) ([]ListProjectsWithTreeCountsRow, error)
 	// Search donors by name or phone number
 	SearchDonors(ctx context.Context, dollar_1 pgtype.Text) ([]CoreDonor, error)
 	SearchProjects(ctx context.Context, dollar_1 pgtype.Text) ([]CoreProject, error)
-	// Update donor information
-	UpdateDonor(ctx context.Context, arg UpdateDonorParams) (CoreDonor, error)
-	UpdateProject(ctx context.Context, arg UpdateProjectParams) (CoreProject, error)
 	UpsertFile(ctx context.Context, arg UpsertFileParams) (UpsertFileRow, error)
 }
 

@@ -49,158 +49,89 @@ func (h *Handlers) GetMarkers(ctx context.Context, input *GetMarkersInput) ([]te
 }
 
 func (h *Handlers) getProjectClusterMarkers(ctx context.Context, input *GetMarkersInput) ([]template.Marker, error) {
-	var markers []template.Marker
-	if input.DonorID == "" {
-		clusters, err := db.GetTreesByProjectCluster(ctx, h.queries, db.GetTreesByProjectClusterInput{
-			SouthLat: input.South,
-			NorthLat: input.North,
-			WestLng:  input.West,
-			EastLng:  input.East,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		markers = make([]template.Marker, 0, len(clusters.Clusters))
-		for _, cluster := range clusters.Clusters {
-			markers = append(markers, template.Marker{
-				Type:  template.MarkerTypeProjectCluster,
-				Lat:   cluster.CenterLat,
-				Lng:   cluster.CenterLng,
-				Count: cluster.TreeCount,
-				ID:    cluster.ProjectCode,
-				Label: cluster.ProjectName,
-			})
-		}
-	} else {
-		rows, err := h.queries.GetDonorTreesByProjectCluster(ctx, db.GetDonorTreesByProjectClusterParams{
-			SouthLat: input.South,
-			NorthLat: input.North,
-			WestLng:  input.West,
-			EastLng:  input.East,
-			DonorID:  input.DonorID,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		markers = make([]template.Marker, 0, len(rows))
-		for _, row := range rows {
-			markers = append(markers, template.Marker{
-				Type:  template.MarkerTypeProjectCluster,
-				Lat:   row.CenterLat,
-				Lng:   row.CenterLng,
-				Count: row.TreeCount,
-				ID:    row.ProjectCode,
-				Label: row.ProjectName,
-			})
-		}
+	var donorId *string
+	if input.DonorID != "" {
+		donorId = &input.DonorID
 	}
-
+	clusters, err := db.GetTreesByProjectCluster(ctx, h.queries, db.GetTreesByProjectClusterInput{
+		DonorID:  donorId,
+		SouthLat: input.South,
+		NorthLat: input.North,
+		WestLng:  input.West,
+		EastLng:  input.East,
+	})
+	if err != nil {
+		return nil, err
+	}
+	markers := make([]template.Marker, 0, len(clusters.Clusters))
+	for _, cluster := range clusters.Clusters {
+		markers = append(markers, template.Marker{
+			Type:  template.MarkerTypeProjectCluster,
+			Lat:   cluster.CenterLat,
+			Lng:   cluster.CenterLng,
+			Count: cluster.TreeCount,
+			ID:    cluster.ProjectCode,
+			Label: cluster.ProjectName,
+		})
+	}
 	return markers, nil
 }
 
 func (h *Handlers) getGridClusterMarkers(ctx context.Context, input *GetMarkersInput) ([]template.Marker, error) {
-	gridSize := calculateGridSize(input.Zoom)
-
-	var markers []template.Marker
-
-	if input.DonorID == "" {
-		clusters, err := db.GetTreesByGridCluster(ctx, h.queries, db.GetTreesByGridClusterInput{
-			Zoom:     input.Zoom,
-			EastLng:  input.East,
-			WestLng:  input.West,
-			SouthLat: input.South,
-			NorthLat: input.North,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		markers = make([]template.Marker, 0, len(clusters.Clusters))
-		for _, cluster := range clusters.Clusters {
-			markers = append(markers, template.Marker{
-				Type:    template.MarkerTypeGridCluster,
-				Lat:     cluster.GridLat,
-				Lng:     cluster.GridLng,
-				Count:   cluster.TreeCount,
-				TreeIDs: cluster.TreeIDs,
-			})
-		}
-	} else {
-		rows, err := h.queries.GetDonorTreesByGridCluster(ctx, db.GetDonorTreesByGridClusterParams{
-			SouthLat: input.South,
-			NorthLat: input.North,
-			WestLng:  input.West,
-			EastLng:  input.East,
-			GridSize: gridSize,
-			DonorID:  input.DonorID,
-		})
-		if err != nil {
-			return nil, err
-		}
-		markers = make([]template.Marker, 0, len(rows))
-		for _, row := range rows {
-			markers = append(markers, template.Marker{
-				Type:    template.MarkerTypeGridCluster,
-				Lat:     row.GridLat,
-				Lng:     row.GridLng,
-				Count:   row.TreeCount,
-				TreeIDs: row.TreeIds,
-			})
-		}
+	var donorId *string
+	if input.DonorID != "" {
+		donorId = &input.DonorID
+	}
+	clusters, err := db.GetTreesByGridCluster(ctx, h.queries, db.GetTreesByGridClusterInput{
+		DonorID:  donorId,
+		Zoom:     input.Zoom,
+		EastLng:  input.East,
+		WestLng:  input.West,
+		SouthLat: input.South,
+		NorthLat: input.North,
+	})
+	if err != nil {
+		return nil, err
 	}
 
+	markers := make([]template.Marker, 0, len(clusters.Clusters))
+	for _, cluster := range clusters.Clusters {
+		markers = append(markers, template.Marker{
+			Type:    template.MarkerTypeGridCluster,
+			Lat:     cluster.GridLat,
+			Lng:     cluster.GridLng,
+			Count:   cluster.TreeCount,
+			TreeIDs: cluster.TreeIDs,
+		})
+	}
 	return markers, nil
+
 }
 
 func (h *Handlers) getIndividualTreeMarkers(ctx context.Context, input *GetMarkersInput) ([]template.Marker, error) {
-	var markers []template.Marker
-	if input.DonorID == "" {
-		trees, err := h.queries.GetIndividualTrees(ctx, db.GetIndividualTreesParams{
-			SouthLat:    input.South,
-			NorthLat:    input.North,
-			WestLng:     input.West,
-			EastLng:     input.East,
-			ResultLimit: 1000,
+	var donorId *string
+	if input.DonorID != "" {
+		donorId = &input.DonorID
+	}
+	trees, err := db.GetIndividualTrees(ctx, h.queries, db.GetIndividualTreesInput{
+		DonorID:  donorId,
+		EastLng:  input.East,
+		WestLng:  input.West,
+		SouthLat: input.South,
+		NorthLat: input.North,
+	})
+	if err != nil {
+		return nil, err
+	}
+	markers := make([]template.Marker, 0, len(trees.Trees))
+	for _, tree := range trees.Trees {
+		markers = append(markers, template.Marker{
+			Type:  template.MarkerTypeTree,
+			Lat:   tree.Latitude,
+			Lng:   tree.Longitude,
+			ID:    tree.ID,
+			Label: tree.ID,
 		})
-		if err != nil {
-			return nil, err
-		}
-
-		markers = make([]template.Marker, 0, len(trees))
-		for _, tree := range trees {
-			markers = append(markers, template.Marker{
-				Type:  template.MarkerTypeTree,
-				Lat:   tree.Latitude,
-				Lng:   tree.Longitude,
-				ID:    tree.ID,
-				Label: fmt.Sprintf("Tree #%d - %s", tree.TreeNumber, tree.ProjectName),
-			})
-		}
-	} else {
-		trees, err := h.queries.GetDonorIndividualTrees(ctx, db.GetDonorIndividualTreesParams{
-			SouthLat:    input.South,
-			NorthLat:    input.North,
-			WestLng:     input.West,
-			EastLng:     input.East,
-			DonorID:     input.DonorID,
-			ResultLimit: 1000,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		markers = make([]template.Marker, 0, len(trees))
-		for _, tree := range trees {
-			markers = append(markers, template.Marker{
-				Type:  template.MarkerTypeTree,
-				Lat:   tree.Latitude,
-				Lng:   tree.Longitude,
-				ID:    tree.ID,
-				Label: fmt.Sprintf("Tree #%d - %s", tree.TreeNumber, tree.ProjectName),
-			})
-		}
 	}
 
 	return markers, nil

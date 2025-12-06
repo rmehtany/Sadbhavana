@@ -20,8 +20,8 @@ func callProcedureWithJSON[I, O any](ctx context.Context, q *Queries, schemaName
 		schemaName = "public"
 	}
 
-	sanitizedProcedureName := pgx.Identifier{strings.ToLower(procedureName)}.Sanitize()
 	sanitizedSchemaName := pgx.Identifier{strings.ToLower(schemaName)}.Sanitize()
+	sanitizedProcedureName := pgx.Identifier{strings.ToLower(procedureName)}.Sanitize()
 
 	query := fmt.Sprintf("CALL %s.%s($1::jsonb, NULL);", sanitizedSchemaName, sanitizedProcedureName)
 

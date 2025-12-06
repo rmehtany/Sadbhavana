@@ -12,15 +12,14 @@ import (
 )
 
 const createTreeUpdate = `-- name: CreateTreeUpdate :one
-INSERT INTO core.tree_update (
-    tree_id,
+INSERT INTO
+    core.tree_update (tree_id, file_id)
+VALUES ($1, $2) ON CONFLICT (file_id) DO
+UPDATE
+SET
+    file_id = EXCLUDED.file_id RETURNING tree_id,
+    update_date,
     file_id
-) VALUES (
-    $1, $2
-)
-ON CONFLICT (file_id)
-DO UPDATE SET file_id = EXCLUDED.file_id
-RETURNING tree_id, update_date, file_id
 `
 
 type CreateTreeUpdateParams struct {
@@ -36,36 +35,12 @@ func (q *Queries) CreateTreeUpdate(ctx context.Context, arg CreateTreeUpdatePara
 	return i, err
 }
 
-const deleteTreeUpdate = `-- name: DeleteTreeUpdate :exec
-DELETE FROM core.tree_update
-WHERE tree_id = $1 AND update_date = $2
-`
-
-type DeleteTreeUpdateParams struct {
-	TreeID     string             `json:"tree_id"`
-	UpdateDate pgtype.Timestamptz `json:"update_date"`
-}
-
-// Delete a specific tree update
-func (q *Queries) DeleteTreeUpdate(ctx context.Context, arg DeleteTreeUpdateParams) error {
-	_, err := q.db.Exec(ctx, deleteTreeUpdate, arg.TreeID, arg.UpdateDate)
-	return err
-}
-
 const getLatestTreeUpdate = `-- name: GetLatestTreeUpdate :one
-SELECT 
-    tu.tree_id,
-    tu.update_date,
-    tu.file_id,
-    f.file_store,
-    f.file_store_id,
-    f.file_path,
-    f.file_name,
-    f.file_type,
-    f.file_expiration
+SELECT tu.tree_id, tu.update_date, tu.file_id, f.file_store, f.file_store_id, f.file_path, f.file_name, f.file_type, f.file_expiration
 FROM core.tree_update tu
-JOIN core.file f ON tu.file_id = f.id
-WHERE tu.tree_id = $1
+    JOIN core.file f ON tu.file_id = f.id
+WHERE
+    tu.tree_id = $1
 ORDER BY tu.update_date DESC
 LIMIT 1
 `
@@ -98,176 +73,4 @@ func (q *Queries) GetLatestTreeUpdate(ctx context.Context, treeID string) (GetLa
 		&i.FileExpiration,
 	)
 	return i, err
-}
-
-const getRecentUpdates = `-- name: GetRecentUpdates :many
-SELECT 
-    tu.tree_id,
-    tu.update_date,
-    tu.file_id,
-    t.tree_number,
-    t.project_code,
-    tw.project_name,
-    f.file_name,
-    f.file_path
-FROM core.tree_update tu
-JOIN core.tree t ON tu.tree_id = t.id
-JOIN core.project tw ON t.project_code = tw.project_code
-JOIN core.file f ON tu.file_id = f.id
-ORDER BY tu.update_date DESC
-LIMIT $1
-`
-
-type GetRecentUpdatesRow struct {
-	TreeID      string             `json:"tree_id"`
-	UpdateDate  pgtype.Timestamptz `json:"update_date"`
-	FileID      string             `json:"file_id"`
-	TreeNumber  int32              `json:"tree_number"`
-	ProjectCode string             `json:"project_code"`
-	ProjectName string             `json:"project_name"`
-	FileName    pgtype.Text        `json:"file_name"`
-	FilePath    pgtype.Text        `json:"file_path"`
-}
-
-// Get recent updates across all trees
-func (q *Queries) GetRecentUpdates(ctx context.Context, limit int32) ([]GetRecentUpdatesRow, error) {
-	rows, err := q.db.Query(ctx, getRecentUpdates, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetRecentUpdatesRow{}
-	for rows.Next() {
-		var i GetRecentUpdatesRow
-		if err := rows.Scan(
-			&i.TreeID,
-			&i.UpdateDate,
-			&i.FileID,
-			&i.TreeNumber,
-			&i.ProjectCode,
-			&i.ProjectName,
-			&i.FileName,
-			&i.FilePath,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getTreeUpdates = `-- name: GetTreeUpdates :many
-SELECT 
-    tu.tree_id,
-    tu.update_date,
-    tu.file_id,
-    f.file_store,
-    f.file_store_id,
-    f.file_path,
-    f.file_name,
-    f.file_type,
-    f.file_expiration
-FROM core.tree_update tu
-JOIN core.file f ON tu.file_id = f.id
-WHERE tu.tree_id = $1
-ORDER BY tu.update_date DESC
-`
-
-type GetTreeUpdatesRow struct {
-	TreeID         string             `json:"tree_id"`
-	UpdateDate     pgtype.Timestamptz `json:"update_date"`
-	FileID         string             `json:"file_id"`
-	FileStore      string             `json:"file_store"`
-	FileStoreID    pgtype.Text        `json:"file_store_id"`
-	FilePath       pgtype.Text        `json:"file_path"`
-	FileName       pgtype.Text        `json:"file_name"`
-	FileType       pgtype.Text        `json:"file_type"`
-	FileExpiration pgtype.Timestamptz `json:"file_expiration"`
-}
-
-// Get all updates for a specific tree
-func (q *Queries) GetTreeUpdates(ctx context.Context, treeID string) ([]GetTreeUpdatesRow, error) {
-	rows, err := q.db.Query(ctx, getTreeUpdates, treeID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetTreeUpdatesRow{}
-	for rows.Next() {
-		var i GetTreeUpdatesRow
-		if err := rows.Scan(
-			&i.TreeID,
-			&i.UpdateDate,
-			&i.FileID,
-			&i.FileStore,
-			&i.FileStoreID,
-			&i.FilePath,
-			&i.FileName,
-			&i.FileType,
-			&i.FileExpiration,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getTreesWithUpdateCount = `-- name: GetTreesWithUpdateCount :many
-SELECT 
-    t.id,
-    t.tree_number,
-    t.project_code,
-    tw.project_name,
-    COUNT(tu.file_id) as update_count,
-    MAX(tu.update_date) as last_updated
-FROM core.tree t
-JOIN core.project tw ON t.project_code = tw.project_code
-LEFT JOIN core.tree_update tu ON t.id = tu.tree_id
-WHERE ($1::CHAR(2) IS NULL OR t.project_code = $1)
-GROUP BY t.id, t.tree_number, t.project_code, tw.project_name
-ORDER BY last_updated DESC NULLS LAST
-`
-
-type GetTreesWithUpdateCountRow struct {
-	ID          string      `json:"id"`
-	TreeNumber  int32       `json:"tree_number"`
-	ProjectCode string      `json:"project_code"`
-	ProjectName string      `json:"project_name"`
-	UpdateCount int64       `json:"update_count"`
-	LastUpdated interface{} `json:"last_updated"`
-}
-
-// Get trees with their update counts
-func (q *Queries) GetTreesWithUpdateCount(ctx context.Context, dollar_1 string) ([]GetTreesWithUpdateCountRow, error) {
-	rows, err := q.db.Query(ctx, getTreesWithUpdateCount, dollar_1)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []GetTreesWithUpdateCountRow{}
-	for rows.Next() {
-		var i GetTreesWithUpdateCountRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.TreeNumber,
-			&i.ProjectCode,
-			&i.ProjectName,
-			&i.UpdateCount,
-			&i.LastUpdated,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }

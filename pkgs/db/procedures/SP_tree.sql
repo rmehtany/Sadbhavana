@@ -7,11 +7,13 @@ LANGUAGE plpgsql
 AS $BODY$
 DECLARE
 	v_rows_affected INTEGER;
+    v_donor_id varchar(21);
 	v_east_lng FLOAT8;
 	v_west_lng FLOAT8;
 	v_north_lat FLOAT8;
 	v_south_lat FLOAT8;
 BEGIN
+	v_donor_id = p_input_json->>'donor_id';
 	v_east_lng = p_input_json->>'east_lng';
 	v_west_lng = p_input_json->>'west_lng';
 	v_north_lat = p_input_json->>'north_lat';
@@ -41,7 +43,8 @@ BEGIN
 		FROM core.tree t
 			JOIN core.project tw 
 				ON t.project_code=tw.project_code
-		WHERE ST_Y(t.tree_location::geometry) BETWEEN v_south_lat AND v_north_lat
+		WHERE t.donor_id = COALESCE(v_donor_id, t.donor_id) 
+        AND ST_Y(t.tree_location::geometry) BETWEEN v_south_lat AND v_north_lat
 		AND ST_X(t.tree_location::geometry) BETWEEN v_west_lng AND v_east_lng
 		GROUP BY t.project_code
 		);
@@ -71,12 +74,14 @@ AS $BODY$
 DECLARE
     v_gridSize FLOAT;
     v_rows_affected INTEGER;
+    v_donor_id varchar(21);
     v_zoom INTEGER;
     v_east_lng FLOAT8;
     v_west_lng FLOAT8;
     v_north_lat FLOAT8;
     v_south_lat FLOAT8;
 BEGIN
+    v_donor_id = p_input_json->>'donor_id';
     v_zoom = p_input_json->>'zoom';
     v_gridSize = 0.1 / power(2, v_zoom-10);
     v_east_lng = p_input_json->>'east_lng';
@@ -106,10 +111,68 @@ BEGIN
             COUNT(*) AS tree_count,
             ARRAY_AGG(t.id)::VARCHAR[] AS tree_ids
         FROM core.tree t
-        WHERE t.tree_location && ST_MakeEnvelope(v_west_lng,v_south_lat,v_east_lng,v_north_lat, 4326)::geography
+        WHERE t.donor_id = COALESCE(v_donor_id, t.donor_id)
+        AND t.tree_location && ST_MakeEnvelope(v_west_lng,v_south_lat,v_east_lng,v_north_lat, 4326)::geography
         GROUP BY ST_SnapToGrid(t.tree_location::geometry, v_gridSize, v_gridSize)
         HAVING COUNT(*)>0
     ) subquery;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Rollback on any error
+        ROLLBACK;
+        
+        -- Re-raise the exception with details
+        RAISE EXCEPTION 'Transaction failed: % (SQLSTATE: %)', SQLERRM, SQLSTATE;
+END;
+$BODY$;
+
+
+-- Create the stored procedure with transaction management
+CREATE OR REPLACE PROCEDURE core.P_GetIndividualTrees(
+    IN p_input_json JSONB,
+    INOUT p_output_json JSONB DEFAULT NULL
+)
+LANGUAGE plpgsql
+AS $BODY$
+DECLARE
+    v_rows_affected INTEGER;
+    v_donor_id varchar(21);
+    v_east_lng FLOAT8;
+    v_west_lng FLOAT8;
+    v_north_lat FLOAT8;
+    v_south_lat FLOAT8;
+BEGIN
+    v_donor_id = p_input_json->>'donor_id';
+    v_east_lng = p_input_json->>'east_lng';
+    v_west_lng = p_input_json->>'west_lng';
+    v_north_lat = p_input_json->>'north_lat';
+    v_south_lat = p_input_json->>'south_lat';
+
+    SELECT jsonb_build_object(
+        'trees',
+        COALESCE(
+            jsonb_agg(
+                jsonb_build_object(
+                    'latitude', latitude,
+                    'longitude', longitude,
+                    'id', id
+                )
+            ),
+            '[]'::jsonb
+        )
+    )
+    INTO p_output_json
+    FROM 
+        (SELECT 
+            ST_Y(tree_location::geometry)::FLOAT as latitude,
+            ST_X(tree_location::geometry)::FLOAT as longitude,
+            id
+        FROM core.tree
+        WHERE donor_id = COALESCE(v_donor_id, donor_id) 
+            AND ST_Y(tree_location::geometry) BETWEEN v_south_lat AND v_north_lat
+            AND ST_X(tree_location::geometry) BETWEEN v_west_lng AND v_east_lng
+        ) subquery;
 
 EXCEPTION
     WHEN OTHERS THEN
