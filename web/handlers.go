@@ -63,8 +63,8 @@ func (h *Handlers) getProjectClusterMarkers(ctx context.Context, input *GetMarke
 	if err != nil {
 		return nil, err
 	}
-	markers := make([]template.Marker, 0, len(clusters.Clusters))
-	for _, cluster := range clusters.Clusters {
+	markers := make([]template.Marker, 0, len(clusters))
+	for _, cluster := range clusters {
 		markers = append(markers, template.Marker{
 			Type:  template.MarkerTypeProjectCluster,
 			Lat:   cluster.CenterLat,
@@ -94,8 +94,8 @@ func (h *Handlers) getGridClusterMarkers(ctx context.Context, input *GetMarkersI
 		return nil, err
 	}
 
-	markers := make([]template.Marker, 0, len(clusters.Clusters))
-	for _, cluster := range clusters.Clusters {
+	markers := make([]template.Marker, 0, len(clusters))
+	for _, cluster := range clusters {
 		markers = append(markers, template.Marker{
 			Type:    template.MarkerTypeGridCluster,
 			Lat:     cluster.GridLat,
@@ -123,8 +123,8 @@ func (h *Handlers) getIndividualTreeMarkers(ctx context.Context, input *GetMarke
 	if err != nil {
 		return nil, err
 	}
-	markers := make([]template.Marker, 0, len(trees.Trees))
-	for _, tree := range trees.Trees {
+	markers := make([]template.Marker, 0, len(trees))
+	for _, tree := range trees {
 		markers = append(markers, template.Marker{
 			Type:  template.MarkerTypeTree,
 			Lat:   tree.Latitude,

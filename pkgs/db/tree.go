@@ -11,10 +11,6 @@ type GetTreesByGridClusterInput struct {
 	NorthLat float64 `json:"north_lat" validate:"required,min=-90,max=90"`
 }
 
-type GetTreesByGridClusterOutput struct {
-	Clusters []GridTreeCluster `json:"clusters"`
-}
-
 type GridTreeCluster struct {
 	GridLng   float64  `json:"grid_lng" validate:"required,min=-180,max=180"`
 	GridLat   float64  `json:"grid_lat" validate:"required,min=-90,max=90"`
@@ -22,8 +18,8 @@ type GridTreeCluster struct {
 	TreeIDs   []string `json:"tree_ids"`
 }
 
-func GetTreesByGridCluster(ctx context.Context, q *Queries, input GetTreesByGridClusterInput) (GetTreesByGridClusterOutput, error) {
-	return callProcedureWithJSON[GetTreesByGridClusterInput, GetTreesByGridClusterOutput](ctx, q, "core", "P_GetTreesByGridCluster", input)
+func GetTreesByGridCluster(ctx context.Context, q *Queries, input GetTreesByGridClusterInput) ([]GridTreeCluster, error) {
+	return callProcedureWithJSON[GetTreesByGridClusterInput, []GridTreeCluster](ctx, q, "core", "P_GetTreesByGridCluster", input)
 }
 
 type GetTreesByProjectClusterInput struct {
@@ -42,12 +38,8 @@ type ProjectTreeCluster struct {
 	CenterLng   float64 `json:"center_lng" validate:"required,min=-180,max=180"`
 }
 
-type GetTreesByProjectClusterOutput struct {
-	Clusters []ProjectTreeCluster `json:"clusters"`
-}
-
-func GetTreesByProjectCluster(ctx context.Context, q *Queries, input GetTreesByProjectClusterInput) (GetTreesByProjectClusterOutput, error) {
-	return callProcedureWithJSON[GetTreesByProjectClusterInput, GetTreesByProjectClusterOutput](ctx, q, "core", "P_GetTreesByProjectCluster", input)
+func GetTreesByProjectCluster(ctx context.Context, q *Queries, input GetTreesByProjectClusterInput) ([]ProjectTreeCluster, error) {
+	return callProcedureWithJSON[GetTreesByProjectClusterInput, []ProjectTreeCluster](ctx, q, "core", "P_GetTreesByProjectCluster", input)
 }
 
 type GetIndividualTreesInput struct {
@@ -64,10 +56,6 @@ type IndividualTree struct {
 	Longitude float64 `json:"longitude" validate:"required,min=-180,max=180"`
 }
 
-type GetIndividualTreesOutput struct {
-	Trees []IndividualTree `json:"trees"`
-}
-
-func GetIndividualTrees(ctx context.Context, q *Queries, input GetIndividualTreesInput) (GetIndividualTreesOutput, error) {
-	return callProcedureWithJSON[GetIndividualTreesInput, GetIndividualTreesOutput](ctx, q, "core", "P_GetIndividualTrees", input)
+func GetIndividualTrees(ctx context.Context, q *Queries, input GetIndividualTreesInput) ([]IndividualTree, error) {
+	return callProcedureWithJSON[GetIndividualTreesInput, []IndividualTree](ctx, q, "core", "P_GetIndividualTrees", input)
 }

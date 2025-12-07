@@ -5,35 +5,46 @@ import (
 	"fmt"
 	"sadbhavana/tree-project/pkgs/utils"
 	"strings"
-
-	"github.com/jackc/pgx/v5"
 )
 
-func callProcedureWithJSON[I, O any](ctx context.Context, q *Queries, schemaName string, procedureName string, input I) (O, error) {
-	var output O
-	err := utils.ValidateStruct(input)
-	if err != nil {
-		return output, fmt.Errorf("failed to validate input for procedure %s.%s: %w", schemaName, procedureName, err)
+func callProcedureWithJSON[I, O any](ctx context.Context, q *Queries, schemaName, procedureName string, input I) (O, error) {
+	type inputWrapper struct {
+		SchemaName  string `json:"schema_name" validate:"required"`
+		HandlerName string `json:"handler_name" validate:"required"`
+		Request     I      `json:"request" validate:"required"`
 	}
 
 	if schemaName == "" {
 		schemaName = "public"
 	}
 
-	sanitizedSchemaName := pgx.Identifier{strings.ToLower(schemaName)}.Sanitize()
-	sanitizedProcedureName := pgx.Identifier{strings.ToLower(procedureName)}.Sanitize()
+	wrappedInput := inputWrapper{
+		SchemaName:  strings.ToLower(schemaName),
+		HandlerName: strings.ToLower(procedureName),
+		Request:     input,
+	}
 
-	query := fmt.Sprintf("CALL %s.%s($1::jsonb, NULL);", sanitizedSchemaName, sanitizedProcedureName)
+	err := utils.ValidateStruct(wrappedInput)
 
-	err = q.db.QueryRow(ctx, query, input).Scan(&output)
+	type outputWrapper struct {
+		Response O `json:"response" validate:"required"`
+	}
+
+	var output outputWrapper
+
 	if err != nil {
-		return output, fmt.Errorf("failed to call procedure %s.%s: %w", schemaName, procedureName, err)
+		return output.Response, fmt.Errorf("failed to validate input for procedure %s.%s: %w", schemaName, procedureName, err)
+	}
+
+	err = q.db.QueryRow(ctx, "CALL core.P_Envelope($1::jsonb, NULL);", wrappedInput).Scan(&output)
+	if err != nil {
+		return output.Response, fmt.Errorf("failed to call procedure %s.%s: %w", schemaName, procedureName, err)
 	}
 
 	err = utils.ValidateStruct(output)
 	if err != nil {
-		return output, fmt.Errorf("failed to validate output for procedure %s.%s: %w", schemaName, procedureName, err)
+		return output.Response, fmt.Errorf("failed to validate output for procedure %s.%s: %w", schemaName, procedureName, err)
 	}
 
-	return output, nil
+	return output.Response, nil
 }

@@ -19,19 +19,17 @@ BEGIN
 	v_north_lat = p_input_json->>'north_lat';
 	v_south_lat = p_input_json->>'south_lat';
 
-	SELECT jsonb_build_object('clusters', 
-        COALESCE(
-            jsonb_agg(
-                jsonb_build_object(
-                    'project_code', project_code,
-                    'project_name', project_name,
-                    'tree_count', tree_count,
-                    'center_lat', center_lat,
-                    'center_lng', center_lng
-                )
-            ), '[]'::jsonb
-        )
-	)
+	SELECT COALESCE(
+        jsonb_agg(
+            jsonb_build_object(
+                'project_code', project_code,
+                'project_name', project_name,
+                'tree_count', tree_count,
+                'center_lat', center_lat,
+                'center_lng', center_lng
+            )
+        ), '[]'::jsonb
+    )
 	INTO p_output_json
 	FROM 
 		(SELECT 
@@ -89,19 +87,16 @@ BEGIN
     v_north_lat = p_input_json->>'north_lat';
     v_south_lat = p_input_json->>'south_lat';
 
-    SELECT jsonb_build_object(
-        'clusters',
-        COALESCE(
-            jsonb_agg(
-                jsonb_build_object(
-                    'grid_lat', grid_lat,
-                    'grid_lng', grid_lng,
-                    'tree_count', tree_count,
-                    'tree_ids', tree_ids
-                )
-            ),
-            '[]'::jsonb
-        )
+    SELECT COALESCE(
+        jsonb_agg(
+            jsonb_build_object(
+                'grid_lat', grid_lat,
+                'grid_lng', grid_lng,
+                'tree_count', tree_count,
+                'tree_ids', tree_ids
+            )
+        ),
+        '[]'::jsonb
     )
     INTO p_output_json
     FROM 
@@ -149,18 +144,15 @@ BEGIN
     v_north_lat = p_input_json->>'north_lat';
     v_south_lat = p_input_json->>'south_lat';
 
-    SELECT jsonb_build_object(
-        'trees',
-        COALESCE(
-            jsonb_agg(
-                jsonb_build_object(
-                    'latitude', latitude,
-                    'longitude', longitude,
-                    'id', id
-                )
-            ),
-            '[]'::jsonb
-        )
+    SELECT COALESCE(
+        jsonb_agg(
+            jsonb_build_object(
+                'latitude', latitude,
+                'longitude', longitude,
+                'id', id
+            )
+        ),
+        '[]'::jsonb
     )
     INTO p_output_json
     FROM 
