@@ -183,3 +183,4 @@ EXCEPTION
         RAISE EXCEPTION 'Transaction failed: % (SQLSTATE: %)', SQLERRM, SQLSTATE;
 END;
 $BODY$;
+

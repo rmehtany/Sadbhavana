@@ -30,7 +30,7 @@ DECLARE
     v_order_mapping JSONB;
 	v_rows_affected INTEGER;
 BEGIN
-	TRUNCATE TABLE U_OrderDetail;
+	--TRUNCATE TABLE U_OrderDetail;
 	TRUNCATE TABLE U_Order;
 
     -- Insert orders from JSON into Order table using set-based operation
