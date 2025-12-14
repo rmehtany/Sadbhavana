@@ -17,6 +17,7 @@ type Config struct {
 	GeminiConfig   GeminiConfig
 	PostgresConfig PostgresConfig
 	WhatsappConfig WhatsappConfig
+	RedisConfig    RedisConfig
 }
 
 type BaseConfig struct {
@@ -36,6 +37,10 @@ type PostgresConfig struct {
 type WhatsappConfig struct {
 	AccessToken string `env:"WHATSAPP_ACCESS_TOKEN,required" validate:"required"`
 	VerifyToken string `env:"WHATSAPP_VERIFY_TOKEN,required" validate:"required"`
+}
+
+type RedisConfig struct {
+	URL string `env:"REDIS_URL,required" validate:"required,url"`
 }
 
 type GeminiConfig struct {

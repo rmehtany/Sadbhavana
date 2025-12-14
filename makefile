@@ -1,4 +1,5 @@
-.PHONY: db_gen
+SHELL := /bin/bash
+.PHONY: db_gen migration
 
 db_gen:
 	cd pkgs && sqlc generate

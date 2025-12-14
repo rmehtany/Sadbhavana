@@ -11,8 +11,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     environment:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/treemap?sslmode=disable
+      - REDIS_URL=redis://redis:6379
 
   db:
     container_name: db    # 👈 fixed name for the db container
@@ -31,6 +34,13 @@ services:
       interval: 2s
       timeout: 5s
       retries: 5
+
+  redis:
+    container_name: redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
 
 volumes:
   postgres_data:

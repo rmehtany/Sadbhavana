@@ -84,7 +84,7 @@ func main() {
 	// Start server in goroutine
 	go func() {
 		log.Printf("🌳 Tree Map Server starting on http://localhost:%d", port)
-		log.Printf("📍 Open http://localhost:%d in your browser", port)
+		log.Printf("📍 Open http://localhost:%d/map in your browser for the map, http://localhost:%d/admin in your browser for the admin panel", port, port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed to start: %v", err)
 		}

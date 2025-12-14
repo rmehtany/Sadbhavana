@@ -35,7 +35,7 @@ cd <repository-name>
 
 #### 2. Install Docker Desktop
 
-**For macOS users:**
+**For MacOS/Linux users:**
 1. Visit [https://www.docker.com/products/docker-desktop/](https://www.docker.com/products/docker-desktop/)
 2. Download Docker Desktop for Mac
 3. Open the downloaded `.dmg` file and drag Docker to Applications
@@ -67,13 +67,34 @@ docker compose up
 This command will:
 - Start PostgreSQL with PostGIS extension
 - Launch the Go backend server with HTMX/templ
-- Set up ngrok for WhatsApp webhook (local development only)
 
 #### 5. Access the Application
 
 Once the containers are running, navigate to:
 - **Map View**: [http://localhost:8080/map](http://localhost:8080/map)
 - **Admin Panel**: [http://localhost:8080/admin](http://localhost:8080/admin)
+
+#### 6. Setting up Development Environment
+
+**For MacOS/Linux Users**
+1. Follow the guide [here](https://github.com/moovweb/gvm) to set up gvm, and install go1.25 (set to default)
+
+**For Windows Users**
+1. In VSCode, press `Ctrl+Shift+P` to enter command palette
+2. Type `Terminal: Select Default Profile`
+3. Enter `Git Bash`
+4. Follow the instructions [here](https://go.dev/dl/) to install go 1.25
+
+**For Both**
+1. Install the following extensions
+  - Go (By Go Team at Google)
+  - PostgreSQL (By Database Client)
+  - Templ Go To Definition (By Louis Laugesen)
+  - templ-vscode (By a-h)
+  - Todo Tree (By Gruntfuggly)
+  - YAML (By Red Hat)
+2. 
+
 
 ## System Overview
 
