@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func callProcedureWithJSON[I, O any](ctx context.Context, q *Queries, schemaName, procedureName string, input I) (O, error) {
+func callProcedureWithJSON[I any, O any](ctx context.Context, q *Queries, schemaName, procedureName string, input I) (O, error) {
 	type inputWrapper struct {
 		SchemaName  string `json:"schema_name" validate:"required"`
 		HandlerName string `json:"handler_name" validate:"required"`
@@ -23,15 +23,12 @@ func callProcedureWithJSON[I, O any](ctx context.Context, q *Queries, schemaName
 		HandlerName: strings.ToLower(procedureName),
 		Request:     input,
 	}
-
-	err := utils.ValidateStruct(wrappedInput)
-
 	type outputWrapper struct {
 		Response O `json:"response" validate:"required"`
 	}
-
 	var output outputWrapper
 
+	err := utils.ValidateStruct(wrappedInput)
 	if err != nil {
 		return output.Response, fmt.Errorf("failed to validate input for procedure %s.%s: %w", schemaName, procedureName, err)
 	}

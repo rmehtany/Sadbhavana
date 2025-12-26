@@ -6,15 +6,15 @@ import (
 )
 
 type ClusterDetail struct {
-	ProjectCode      string
-	ProjectName      string
-	TreeCount     int64
-	CenterLat     float64
-	CenterLng     float64
-	FirstPlanted  *time.Time
-	LastPlanted   *time.Time
-	UniqueDonors  int64
-	ProjectMetadata  map[string]interface{}
+	ProjectCode      string `json:"project_code"`
+	ProjectName      string	 `json:"project_name"`
+	TreeCount     int64    `json:"tree_count"`
+	CenterLat     float64  `json:"center_lat"`
+	CenterLng     float64  `json:"center_lng"`
+	FirstPlanted  *time.Time `json:"first_planted"`
+	LastPlanted   *time.Time `json:"last_planted"`
+	UniqueDonors  int64    `json:"unique_donors"`
+	ProjectMetadata  map[string]interface{} `json:"project_metadata"`
 }
 
 templ ClusterDetailPanel(cluster *ClusterDetail) {

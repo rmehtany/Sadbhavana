@@ -1,8 +1,11 @@
+truncate table U_RunLog RESTART IDENTITY;
+truncate table U_RunLogStep RESTART IDENTITY;
+
 DO $RUN$
 DECLARE
     v_output JSONB;
 BEGIN
-    CALL core.P_Envelope (
+    CALL core.P_DbApi (
     '{
 		"schema_name": "core",	
 		"handler_name":"p_gettreesbyprojectcluster",
@@ -19,3 +22,7 @@ BEGIN
     RAISE NOTICE 'Output: %', v_output;
 END 
 $RUN$;
+
+select * from core.V_RL ORDER BY RunLogIdn DESC LIMIT 1;
+select * from core.V_RLS WHERE RunLogIdn=(select MAX(RunLogIdn) from core.U_RunLog) order by Idn;
+

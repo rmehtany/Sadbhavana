@@ -1,4 +1,4 @@
--- Create the stored procedure with transaction management
+-- GetTreesByProjectCluster 
 CREATE OR REPLACE PROCEDURE core.P_GetTreesByProjectCluster(
     IN p_input_json JSONB,
     INOUT p_output_json JSONB DEFAULT NULL
@@ -46,19 +46,6 @@ BEGIN
 		AND ST_X(t.tree_location::geometry) BETWEEN v_west_lng AND v_east_lng
 		GROUP BY t.project_code
 		);
-	
-    -- Return empty array if no output
---    IF p_output_json IS NULL THEN
---        p_output_json := '[]'::jsonb;
---    END IF;
-
-EXCEPTION
-    WHEN OTHERS THEN
-        -- Rollback on any error
-        ROLLBACK;
-        
-        -- Re-raise the exception with details
-        RAISE EXCEPTION 'Transaction failed: % (SQLSTATE: %)', SQLERRM, SQLSTATE;
 END;
 $BODY$;
 
@@ -111,17 +98,8 @@ BEGIN
         GROUP BY ST_SnapToGrid(t.tree_location::geometry, v_gridSize, v_gridSize)
         HAVING COUNT(*)>0
     ) subquery;
-
-EXCEPTION
-    WHEN OTHERS THEN
-        -- Rollback on any error
-        ROLLBACK;
-        
-        -- Re-raise the exception with details
-        RAISE EXCEPTION 'Transaction failed: % (SQLSTATE: %)', SQLERRM, SQLSTATE;
 END;
 $BODY$;
-
 
 -- Create the stored procedure with transaction management
 CREATE OR REPLACE PROCEDURE core.P_GetIndividualTrees(
@@ -165,14 +143,62 @@ BEGIN
             AND ST_Y(tree_location::geometry) BETWEEN v_south_lat AND v_north_lat
             AND ST_X(tree_location::geometry) BETWEEN v_west_lng AND v_east_lng
         ) subquery;
-
-EXCEPTION
-    WHEN OTHERS THEN
-        -- Rollback on any error
-        ROLLBACK;
-        
-        -- Re-raise the exception with details
-        RAISE EXCEPTION 'Transaction failed: % (SQLSTATE: %)', SQLERRM, SQLSTATE;
 END;
 $BODY$;
 
+-- Create the stored procedure with transaction management
+CREATE OR REPLACE PROCEDURE core.P_GetTreeByID(
+    IN p_input_json JSONB,
+    INOUT p_output_json JSONB DEFAULT NULL
+)
+LANGUAGE plpgsql
+AS $BODY$
+DECLARE
+    v_rows_affected INTEGER;
+    v_tree_id varchar(21);
+BEGIN
+    v_tree_id = p_input_json->>'tree_id';
+
+    SELECT COALESCE(
+        jsonb_build_object(
+            'id', id,
+            'project_code', project_code, 
+            'tree_number', tree_number,
+            'donor_id', donor_id,
+            'latitude', latitude,
+            'longitude', longitude,
+            'planted_at', planted_at,
+            'created_at', created_at,
+            'metadata', metadata,
+            'donor_name', donor_name,
+            'donor_phone_number', donor_phone_number,
+            'project_name', project_name,
+            'project_metadata', project_metadata
+        ),
+        '{}'::jsonb
+    )
+    INTO p_output_json
+    FROM 
+        (SELECT 
+            t.id,
+            t.project_code,
+            t.tree_number,
+            t.donor_id,
+            ST_Y(t.tree_location::geometry)::FLOAT as latitude,
+            ST_X(t.tree_location::geometry)::FLOAT as longitude,
+            t.planted_at,
+            t.created_at,
+            t.metadata,
+            d.donor_name,
+            d.phone_number as donor_phone_number,
+            tw.project_name,
+            tw.metadata as project_metadata
+        FROM core.tree t
+            JOIN core.donor d 
+                ON t.donor_id = d.id
+            JOIN core.project tw 
+                ON t.project_code = tw.project_code
+        WHERE t.id = v_tree_id
+        ) subquery;
+END;
+$BODY$;
