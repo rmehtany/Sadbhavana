@@ -17,8 +17,11 @@
 
 -- GetProject 
 CREATE OR REPLACE PROCEDURE STP.P_GetProject(
+    IN      P_AnchorTs      TIMESTAMP,
+    IN      P_UserIdn       INT,
+    IN      P_RunLogIdn     INT,
     IN 		p_InputJson 	JSONB,
-    INOUT 	p_OutputJson 	JSONB DEFAULT NULL
+    INOUT 	p_OutputJson 	JSONB
 )
 LANGUAGE plpgsql
 AS $BODY$
@@ -26,7 +29,7 @@ DECLARE
 	v_Rc INTEGER;
     v_ProjectPattern varchar(128);
 BEGIN
-	v_ProjectPattern = '%' || (p_InputJson->>'project_pattern') || '%';
+	v_ProjectPattern='%' || (p_InputJson->>'project_pattern') || '%';
 	raise notice 'ProjectPattern: %',v_ProjectPattern;
 
 	SELECT COALESCE(
@@ -59,8 +62,11 @@ END;
 $BODY$;
 -- SaveProject with Insert/Update and Duplicate Key Validation
 CREATE OR REPLACE PROCEDURE STP.P_SaveProject(
+    IN      P_AnchorTs      TIMESTAMP,
+    IN      P_UserIdn       INT,
+    IN      P_RunLogIdn     INT,
     IN      p_InputJson     JSONB,
-    INOUT   p_OutputJson    JSONB DEFAULT NULL
+    INOUT   p_OutputJson    JSONB
 )
 LANGUAGE plpgsql
 AS $BODY$
@@ -69,7 +75,7 @@ DECLARE
     v_DuplicateProjectIds TEXT;
 BEGIN
     -- Create temp table to hold input projects
-    CREATE TEMP TABLE t_project (
+    CREATE TEMP TABLE T_Project (
         ProjectIdn      INT,
         ProjectId       VARCHAR(64),
         ProjectName     VARCHAR(128),
@@ -80,7 +86,7 @@ BEGIN
     ) ON COMMIT DROP;
 
     -- Parse input JSON array into temp table
-    INSERT INTO t_project (ProjectIdn,ProjectId,ProjectName,TreeCntPledged,TreeCntPlanted,Lat,Lng)
+    INSERT INTO T_Project (ProjectIdn,ProjectId,ProjectName,TreeCntPledged,TreeCntPlanted,Lat,Lng)
     SELECT 
         NULLIF(T->>'project_idn','')::INT,
         T->>'project_id',
@@ -89,50 +95,49 @@ BEGIN
         COALESCE((T->>'tree_cnt_planted')::INT,0),
         (T->>'latitude')::FLOAT,
         (T->>'longitude')::FLOAT
-    FROM jsonb_array_elements(p_InputJson->'items') AS T;
+    FROM jsonb_array_elements(p_InputJson) AS T;
+    CALL core.P_RunLogStep(p_RunLogIdn, NULL, 'INSERT T_Project');
+
+    -- Validate: Check for duplicate ProjectId within input batch
+    SELECT string_agg(DISTINCT ProjectId,',')
+    INTO v_DuplicateProjectIds
+    FROM 
+        (SELECT ProjectId
+        FROM T_Project
+        GROUP BY ProjectId
+        HAVING COUNT(*)>1
+        ) dups;
+
+    IF v_DuplicateProjectIds IS NOT NULL THEN
+        RAISE EXCEPTION 'Duplicate ProjectId(s) in input batch: %. ProjectId must be unique.',v_DuplicateProjectIds;
+    END IF;
 
     -- Validate: Check for duplicate ProjectId in existing records (excluding current record for updates)
     SELECT string_agg(DISTINCT tp.ProjectId,',')
     INTO v_DuplicateProjectIds
-    FROM t_project tp
+    FROM T_Project tp
     	INNER JOIN stp.U_Project up 
-     	   ON tp.ProjectId = up.ProjectId
-     	   AND (tp.ProjectIdn IS NULL OR tp.ProjectIdn != up.ProjectIdn);
+     	   ON tp.ProjectId=up.ProjectId
+     	   AND (tp.ProjectIdn IS NULL OR tp.ProjectIdn!=up.ProjectIdn);
 
     -- If duplicates found,raise exception
     IF v_DuplicateProjectIds IS NOT NULL THEN
         RAISE EXCEPTION 'Duplicate ProjectId(s) found: %. ProjectId must be unique.',v_DuplicateProjectIds;
     END IF;
 
-    -- Validate: Check for duplicate ProjectId within input batch
-    SELECT string_agg(DISTINCT ProjectId,',')
-    INTO v_DuplicateProjectIds
-    FROM (
-        SELECT ProjectId
-        FROM t_project
-        GROUP BY ProjectId
-        HAVING COUNT(*) > 1
-    ) dups;
-
-    IF v_DuplicateProjectIds IS NOT NULL THEN
-        RAISE EXCEPTION 'Duplicate ProjectId(s) in input batch: %. ProjectId must be unique.',v_DuplicateProjectIds;
-    END IF;
-
     -- Update existing projects where ProjectIdn is specified
     UPDATE stp.U_Project up
-    SET 
-        ProjectId = tp.ProjectId,
-        ProjectName = tp.ProjectName,
-        TreeCntPledged = tp.TreeCntPledged,
-        TreeCntPlanted = tp.TreeCntPlanted,
-        ProjectLocation = ST_SetSRID(ST_MakePoint(tp.Lng,tp.Lat),4326)::geography,
-        Ts = CURRENT_TIMESTAMP
-    FROM t_project tp
-    WHERE up.ProjectIdn = tp.ProjectIdn
+    SET ProjectId=tp.ProjectId,
+        ProjectName=tp.ProjectName,
+        TreeCntPledged=tp.TreeCntPledged,
+        TreeCntPlanted=tp.TreeCntPlanted,
+        ProjectLocation=ST_SetSRID(ST_MakePoint(tp.Lng,tp.Lat),4326)::geography,
+        Ts=P_AnchorTs
+    FROM T_Project tp
+    WHERE up.ProjectIdn=tp.ProjectIdn
     AND tp.ProjectIdn IS NOT NULL;
-
-    GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    RAISE NOTICE 'Updated % project(s)',v_Rc;
+    GET DIAGNOSTICS v_Rc=ROW_COUNT;
+    CALL core.P_RunLogStep(p_RunLogIdn,v_Rc,'UPDATE stp.U_Project');
 
     -- Insert new projects where ProjectIdn is not specified
     INSERT INTO stp.U_Project (ProjectId,ProjectName,TreeCntPledged,TreeCntPlanted,ProjectLocation,StartDt,PropertyList,UserId,Ts)
@@ -142,14 +147,13 @@ BEGIN
         tp.TreeCntPledged,
         tp.TreeCntPlanted,
         ST_SetSRID(ST_MakePoint(tp.Lng,tp.Lat),4326)::geography,
-        CURRENT_TIMESTAMP,
+        P_AnchorTs,
 		'','',
-        CURRENT_TIMESTAMP
-    FROM t_project tp
+        P_AnchorTs
+    FROM T_Project tp
     WHERE tp.ProjectIdn IS NULL;
-
-    GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    RAISE NOTICE 'Inserted % project(s)',v_Rc;
+    GET DIAGNOSTICS v_Rc=ROW_COUNT;
+    CALL core.P_RunLogStep(p_RunLogIdn,v_Rc,'INSERT stp.U_Project');
 
     -- Return the saved projects (both updated and inserted)
     SELECT COALESCE(
@@ -167,77 +171,6 @@ BEGIN
     )
     INTO p_OutputJson
     FROM stp.U_Project up
-    WHERE up.ProjectId IN (SELECT ProjectId FROM t_project);
+    WHERE up.ProjectId IN (SELECT ProjectId FROM T_project);
 END;
 $BODY$;
-
---Example Usage:
-
--- Insert new projects (ProjectIdn is null or not provided)
-CALL STP.P_SaveProject(
-    '{
-        "items": [
-            {
-                "project_id": "PROJ001",
-                "project_name": "Forest Restoration Alpha",
-                "tree_cnt_pledged": 1000,
-                "tree_cnt_planted": 500,
-                "latitude": 40.7128,
-                "longitude": -74.0060
-            },
-            {
-                "project_id": "PROJ002",
-                "project_name": "Coastal Mangrove Initiative",
-                "tree_cnt_pledged": 2000,
-                "tree_cnt_planted": 750,
-                "latitude": 25.7617,
-                "longitude": -80.1918
-            }
-        ]
-    }'::jsonb,
-    NULL
-);
-
--- Update existing projects (ProjectIdn is provided)
-CALL STP.P_SaveProject(
-    '{
-        "items": [
-            {
-                "project_idn": 1,
-                "project_id": "PROJ001",
-                "project_name": "Forest Restoration Alpha - Updated",
-                "tree_cnt_pledged": 1500,
-                "tree_cnt_planted": 800,
-                "latitude": 40.7128,
-                "longitude": -74.0060
-            }
-        ]
-    }'::jsonb,
-    NULL
-);
-
--- Mix of insert and update
-CALL STP.P_SaveProject(
-    '{
-        "items": [
-            {
-                "project_idn": 1,
-                "project_id": "PROJ001",
-                "project_name": "Updated Project",
-                "tree_cnt_pledged": 1500,
-                "tree_cnt_planted": 800,
-                "latitude": 40.7128,
-                "longitude": -74.0060
-            },
-            {
-                "project_id": "PROJ003",
-                "project_name": "New Project",
-                "tree_cnt_pledged": 500,
-                "tree_cnt_planted": 100,
-                "latitude": 34.0522,
-                "longitude": -118.2437
-            }
-        ]
-    }'::jsonb,
-    NULL
-);

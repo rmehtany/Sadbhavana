@@ -117,6 +117,7 @@ CREATE OR REPLACE PROCEDURE core.P_DbApi(
 LANGUAGE plpgsql
 AS $BODY$
 DECLARE
+    v_AnchorTs          TIMESTAMP=now();
 	v_HandlerName		VARCHAR(64);
 	v_ProcedureCall		VARCHAR(256);
     v_Rc 				INTEGER;
@@ -124,9 +125,11 @@ DECLARE
     v_ResultJson 		JSONB;
     v_RunLogIdn 		INT;
 	v_SchemaName		VARCHAR(64);
+    v_UserIdn           INT;  
 BEGIN
 	v_SchemaName = p_InputJson->>'schema_name';
     v_HandlerName = p_InputJson->>'handler_name';
+    v_UserIdn := (p_InputJson->>'user_idn')::INT;
 
     -- Start logging and get RunLogIdn
     v_RunLogIdn := core.F_RunLogStart(v_HandlerName, p_InputJson);
@@ -134,8 +137,8 @@ BEGIN
     v_RequestJson = p_InputJson->'request';
     CALL core.P_RunLogStep(v_RunLogIdn, NULL, 'Extract request JSON');
 
-	v_ProcedureCall = format('CALL %I.%I($1,NULL)',v_SchemaName,v_HandlerName);
-    EXECUTE v_ProcedureCall INTO v_ResultJson USING v_RequestJson;
+	v_ProcedureCall = format('CALL %I.%I($1,$2,$3,$4,NULL)',v_SchemaName,v_HandlerName);
+    EXECUTE v_ProcedureCall INTO v_ResultJson USING v_AnchorTs,v_UserIdn,v_RunLogIdn,v_RequestJson;
     CALL core.P_RunLogStep(v_RunLogIdn, NULL, 'Worker '||v_HandlerName||' executed successfully');
 
     SELECT jsonb_build_object('response',v_ResultJson,'meter','[{"ts":"12:03","action": "ran procedure"}]'::jsonb)
