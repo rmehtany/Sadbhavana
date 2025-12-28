@@ -15,14 +15,14 @@ drop table if exists stp.u_donor;
 CREATE TABLE stp.u_donor (
     donoridn      integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     donorname     varchar(128) NOT NULL,
-    mobilenumber  varchar(128) NOT NULL,
+    mobilenumber  varchar(64) NOT NULL,
     city          varchar(64) NOT NULL,
     emailaddr     varchar(64),
     country       varchar(64) NOT NULL,
     state         varchar(64) NOT NULL,
-    propertylist  varchar(256) NOT NULL,
     birthdt       date,
-    userid        varchar(32) NOT NULL,
+    propertylist  varchar(256) NOT NULL,
+    UserIdn       INT NOT NULL,
     ts            timestamp
 );
 
@@ -60,10 +60,12 @@ CREATE TABLE stp.u_pledge (
     pledgeidn        integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     projectidn       integer NOT NULL,
     donoridn         integer NOT NULL,
-    treecntpledged   integer,
     pledgets         timestamp NOT NULL,
+    treecntpledged   integer,
     treecntplanted   integer,
-    propertylist     varchar(256) NOT NULL
+    pledgecredit     jsonb,
+    propertylist     varchar(256) NOT null,
+    UserIdn          INT NOT NULL
 );
 
 CREATE UNIQUE INDEX xak1u_pledge
@@ -82,7 +84,7 @@ CREATE TABLE stp.u_project (
     treecntplanted   integer,
     projectid        varchar(64) NOT NULL,
     propertylist     varchar(256) NOT NULL,
-    userid           varchar(32) NOT NULL,
+    useridn          int NOT NULL,
     ts               timestamp NOT NULL
 );
 
@@ -95,11 +97,11 @@ CREATE UNIQUE INDEX xak1u_project
 drop table if exists stp.u_provider;
 CREATE TABLE stp.u_provider (
     provideridn   integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    providername  varchar(64) NOT NULL,
-    authtype      varchar(64),
-    authconfig    varchar(64),
-    accesstoken   varchar(64),
-    refreshtoken  varchar(64),
+    providername  varchar(128) NOT NULL,
+    authtype      varchar(256),
+    authconfig    varchar(256),
+    accesstoken   varchar(256),
+    refreshtoken  varchar(256),
     expirets      timestamp
 );
 
@@ -112,7 +114,7 @@ CREATE TABLE stp.u_tree (
     treelocation  GEOGRAPHY(Point, 4326) NOT NULL,
     treetypeidn   integer NOT NULL,
     pledgeidn     integer NOT NULL,
-    titlename     varchar(64),
+    creditname    varchar(64),
     treeid        varchar(64) NOT NULL,
     propertylist  varchar(256) NOT NULL
 );
@@ -133,7 +135,7 @@ CREATE TABLE stp.u_treephoto (
     fileidn        integer NOT NULL,
     photots        timestamp NOT NULL,
     donoridn       integer NOT NULL,
-    userid         varchar(32) NOT NULL,
+    useridn         int NOT NULL,
     PRIMARY KEY (treeidn, uploadts)
 );
 
@@ -153,9 +155,9 @@ CREATE TABLE stp.u_treetype (
 ---------------------------------------------------------
 drop table if exists stp.u_user;
 CREATE TABLE stp.u_user (
-    userid          integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    username        char(18),
-    useridcreator   char(18),
-    ts              char(18),
-    mobilenumber    char(18)
+    useridn         integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    username        varchar(128),
+    mobilenumber    varchar(64),
+    useridncreator  INT,
+    ts              TIMESTAMP
 );
