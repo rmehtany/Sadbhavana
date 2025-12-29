@@ -8,8 +8,10 @@
 -- GetPledge
 -- SavePledge
 -- DeletePledge
-
--- CreateTree
+-- CreateTreeBulk
+-- GetTree
+-- SaveTree
+-- DeleteTree
 -- UploadPhotoInfo
 -- SendDonorUpdate
 -- ConfirmDonorUpdate
@@ -214,7 +216,7 @@ BEGIN
     CALL core.P_RunLogStep(p_RunLogIdn,v_Rc,'DELETE stp.U_Project');
 
     -- Return deleted project identifiers
-    p_OutputJson := jsonb_build_object(
+    p_OutputJson:=jsonb_build_object(
         'deleted_count',v_Rc,
         'deleted_project_idns',COALESCE(v_DeletedProjectIdns,'')
     );
@@ -423,7 +425,7 @@ BEGIN
     CALL core.P_RunLogStep(p_RunLogIdn,v_Rc,'DELETE stp.U_Donor');
 
     -- Return deleted donor identifiers
-    p_OutputJson := jsonb_build_object(
+    p_OutputJson:=jsonb_build_object(
         'deleted_count',v_Rc,
         'deleted_donor_idns',COALESCE(v_DeletedDonorIdns,'')
     );
@@ -446,8 +448,8 @@ DECLARE
     v_DonorIdn INT;
     v_ProjectIdn INT;
 BEGIN
-    v_DonorIdn := NULLIF(p_InputJson->>'donor_idn','')::INT;
-    v_ProjectIdn := NULLIF(p_InputJson->>'project_idn','')::INT;
+    v_DonorIdn:=NULLIF(p_InputJson->>'donor_idn','')::INT;
+    v_ProjectIdn:=NULLIF(p_InputJson->>'project_idn','')::INT;
     
     raise notice 'DonorIdn: %, ProjectIdn: %',v_DonorIdn,v_ProjectIdn;
 
@@ -505,10 +507,7 @@ BEGIN
         COALESCE((T->>'tree_cnt_pledged')::INT,0),
         COALESCE((T->>'tree_cnt_planted')::INT,0),
         (T->'pledge_credit') AS PledgeCredit
-    FROM jsonb_array_elements(p_InputJson) AS T
-        ) AS T
-    INNER JOIN stp.U_Donor AS D
-        ON T.DonorIdn=D.DonorIdn;
+    FROM jsonb_array_elements(p_InputJson) AS T;
     GET DIAGNOSTICS v_Rc=ROW_COUNT;
     CALL core.P_RunLogStep(p_RunLogIdn,v_Rc,'INSERT T_Pledge');
 
@@ -575,6 +574,10 @@ DECLARE
     v_Rc INTEGER;
     v_DeletedPledgeIdns TEXT;
 BEGIN
+    -- Get CreateType from input
+    v_Cascade := COALESCE(p_InputJson->>'cascade','Missing');
+    CALL core.P_RunLogStep(p_RunLogIdn,NULL,'CreateType: ' || v_CreateType);
+
     -- Create temp table to hold input pledge identifiers
     CREATE TEMP TABLE T_PledgeDelete (
         PledgeIdn INT
@@ -600,15 +603,31 @@ BEGIN
     GET DIAGNOSTICS v_Rc=ROW_COUNT;
     CALL core.P_RunLogStep(p_RunLogIdn,v_Rc,'DELETE stp.U_Pledge');
 
-    -- Delete pledged trees
-    DELETE FROM stp.U_Tree ut
-    USING T_PledgeDelete tpd
-    WHERE ut.PledgeIdn=tpd.PledgeIdn;
-    GET DIAGNOSTICS v_Rc=ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn,v_Rc,'DELETE stp.U_Tree');
+    -- Handle Clean option
+    IF v_CreateType='Clean' THEN
+        -- Check if any trees have photos
+        IF EXISTS
+            (SELECT 1
+            FROM stp.U_Pledge p
+                JOIN stp.U_Tree t
+                    ON p.PledgeIdn=t.PledgeIdn
+                JOIN stp.U_TreePhoto AS tp
+                    ON t.TreeIdn=tp.TreeIdn
+            WHERE p.ProjectIdn=v_ProjectIdn)
+        THEN
+            RAISE EXCEPTION 'Tree cannot be deleted as we have records in U_TreePhoto';
+        END IF;
+
+	    -- Delete pledged trees
+	    DELETE FROM stp.U_Tree ut
+	    USING T_PledgeDelete tpd
+	    WHERE ut.PledgeIdn=tpd.PledgeIdn;
+	    GET DIAGNOSTICS v_Rc=ROW_COUNT;
+	    CALL core.P_RunLogStep(p_RunLogIdn,v_Rc,'DELETE stp.U_Tree');
+	END IF;
 
     -- Return deleted pledge identifiers
-    p_OutputJson := jsonb_build_object(
+    p_OutputJson:=jsonb_build_object(
         'deleted_count',v_Rc,
         'deleted_pledge_idns',COALESCE(v_DeletedPledgeIdns,'')
     );
@@ -616,7 +635,7 @@ END;
 $BODY$;
 
 -- PopulateTree - Create trees for pledges in a given project
-CREATE OR REPLACE PROCEDURE STP.P_CreateTree(
+CREATE OR REPLACE PROCEDURE STP.P_CreateTreeBulk(
     IN      P_AnchorTs      TIMESTAMP,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -626,20 +645,24 @@ CREATE OR REPLACE PROCEDURE STP.P_CreateTree(
 LANGUAGE plpgsql
 AS $BODY$
 DECLARE
-    v_Rc 				INTEGER;
-    v_ProjectIdn		INT;
-    v_ProjectId			VARCHAR(64);
+    v_CreateType		VARCHAR(32);	-- Missing (Default), Clean
     v_MaxTreeNum		INT;
+    v_ProjectId			VARCHAR(64);
+    v_ProjectIdn		INT;
+    v_Rc 				INTEGER;
 BEGIN
-    -- Get ProjectIdn from input
+    -- Get ProjectIdn from input (moved to beginning)
     v_ProjectIdn := (p_InputJson->>'project_idn')::INT;
     IF v_ProjectIdn IS NULL THEN
         RAISE EXCEPTION 'project_idn is required';
     END IF;
+    CALL core.P_RunLogStep(p_RunLogIdn,NULL,'ProjectIdn: ' || v_ProjectIdn);
 
-    raise notice 'ProjectIdn: %',v_ProjectIdn;
-/*
-    -- Get Project details
+    -- Get CreateType from input
+    v_CreateType := COALESCE(p_InputJson->>'create_type','Missing');
+    CALL core.P_RunLogStep(p_RunLogIdn,NULL,'CreateType: ' || v_CreateType);
+
+    -- Get ProjectId
     SELECT ProjectId
     INTO v_ProjectId
     FROM stp.U_Project
@@ -649,27 +672,57 @@ BEGIN
     END IF;
     CALL core.P_RunLogStep(p_RunLogIdn,NULL,'Found Project: ' || v_ProjectId);
 
+    -- Handle Clean option
+    IF v_CreateType='Clean' THEN
+        -- Check if any trees have photos
+        IF EXISTS
+            (SELECT 1
+            FROM stp.U_Pledge p
+                JOIN stp.U_Tree t
+                    ON p.PledgeIdn=t.PledgeIdn
+                JOIN stp.U_TreePhoto AS tp
+                    ON t.TreeIdn=tp.TreeIdn
+            WHERE p.ProjectIdn=v_ProjectIdn)
+        THEN
+            RAISE EXCEPTION 'Tree cannot be deleted as we have records in U_TreePhoto';
+        END IF;
+
+        -- Delete existing trees for this project
+        DELETE FROM stp.U_Tree t
+        USING stp.U_Pledge p
+        WHERE t.PledgeIdn=p.PledgeIdn
+          AND p.ProjectIdn=v_ProjectIdn;
+        GET DIAGNOSTICS v_Rc=ROW_COUNT;
+        CALL core.P_RunLogStep(p_RunLogIdn,v_Rc,'DELETE stp.U_Tree');
+    END IF;
+
     -- Get the current max tree number for this project
     SELECT COALESCE(MAX(SUBSTRING(t.TreeId FROM LENGTH(v_ProjectId)+1)::INT),0)
     INTO v_MaxTreeNum
     FROM stp.U_Pledge p
-    	JOIN stp.U_Tree t
-			ON t.PledgeIdn=p.PledgeIdn
+        JOIN stp.U_Tree t
+            ON p.PledgeIdn=t.PledgeIdn
     WHERE p.ProjectIdn=v_ProjectIdn;
 
+    -- Create tree records for project pledges not already processed
     INSERT INTO stp.U_Tree (TreeLocation,TreeTypeIdn,PledgeIdn,CreditName,TreeId,PropertyList)
-	SELECT NULL,NULL,p.PledgeIdn,pc->>'credit_name',
-		v_ProjectId || (v_MaxTreeNum + row_number() OVER (ORDER BY t.DonorIdn,t.PledgeIdn,gs.n )::TEXT,
-		''
-	FROM
-	    (SELECT p.PledgeIdn,p.DonorIdn,p.treecntpledged,p.pledge_credit
-	    FROM stp.U_Pledge p
-	    	LEFT JOIN stp.U_Tree t
-				ON t.PledgeIdn=p.PledgeIdn
-		WHERE t.PledgeIdn IS NULL
-		) AS t
-		JOIN LATERAL jsonb_array_elements(t.pledge_credit) AS pc ON TRUE
-		JOIN LATERAL generate_series(1,(pc->>'tree_cnt')::INT) AS gs(n) ON TRUE;
+    SELECT 
+        ST_SetSRID(ST_MakePoint(v_Lng,v_Lat),4326)::geography,
+        0,
+        t.PledgeIdn,
+        pc->>'credit_name',
+        v_ProjectId || (v_MaxTreeNum + row_number() OVER (ORDER BY t.DonorIdn,t.PledgeIdn,gs.n))::TEXT,
+        ''
+    FROM
+        (SELECT p.PledgeIdn,p.DonorIdn,p.TreeCntPledged,p.PledgeCredit
+        FROM stp.U_Pledge p
+            LEFT JOIN stp.U_Tree t
+                ON p.PledgeIdn=t.PledgeIdn
+        WHERE p.ProjectIdn=v_ProjectIdn
+          AND t.TreeIdn IS NULL
+        ) AS t
+        CROSS JOIN LATERAL jsonb_array_elements(t.PledgeCredit) AS pc
+        CROSS JOIN LATERAL generate_series(1,(pc->>'tree_cnt')::INT) AS gs(n);
     GET DIAGNOSTICS v_Rc=ROW_COUNT;
     CALL core.P_RunLogStep(p_RunLogIdn,v_Rc,'INSERT stp.U_Tree');
 
@@ -680,6 +733,5 @@ BEGIN
         'trees_created',v_Rc
     );
     CALL core.P_RunLogStep(p_RunLogIdn,v_Rc,'Trees created for ProjectIdn: ' || v_ProjectIdn);
-*/
 END;
 $BODY$;
