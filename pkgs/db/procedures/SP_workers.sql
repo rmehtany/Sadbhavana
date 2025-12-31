@@ -575,7 +575,6 @@ DECLARE
     v_DeletedPledgeIdns TEXT;
 BEGIN
     -- Get CreateType from input
-    v_Cascade := COALESCE(p_InputJson->>'cascade','Missing');
     CALL core.P_RunLogStep(p_RunLogIdn,NULL,'CreateType: ' || v_CreateType);
 
     -- Create temp table to hold input pledge identifiers
