@@ -8,9 +8,7 @@ create extension if not exists dblink;
 -- Schema (if not already created)
 CREATE SCHEMA IF NOT EXISTS stp;
 
----------------------------------------------------------
 -- U_Donor
----------------------------------------------------------
 drop table if exists stp.u_donor;
 CREATE TABLE stp.u_donor (
     donoridn      integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -26,9 +24,7 @@ CREATE TABLE stp.u_donor (
     ts            timestamp
 );
 
----------------------------------------------------------
 -- U_DonorSendLog
----------------------------------------------------------
 drop table if exists stp.u_donorsendlog;
 CREATE TABLE stp.u_donorsendlog (
     idn          integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -38,9 +34,7 @@ CREATE TABLE stp.u_donorsendlog (
     sendstatus   varchar(64)
 );
 
----------------------------------------------------------
 -- U_File
----------------------------------------------------------
 drop table if exists stp.u_file;
 CREATE TABLE stp.u_file (
     fileidn      integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -52,9 +46,7 @@ CREATE TABLE stp.u_file (
     provideridn  integer NOT NULL
 );
 
----------------------------------------------------------
 -- U_Pledge
----------------------------------------------------------
 drop table if exists stp.u_pledge;
 CREATE TABLE stp.u_pledge (
     pledgeidn        integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -71,9 +63,7 @@ CREATE TABLE stp.u_pledge (
 CREATE UNIQUE INDEX xak1u_pledge
     ON stp.u_pledge (projectidn, donoridn, pledgets);
 
----------------------------------------------------------
 -- U_Project
----------------------------------------------------------
 drop table if exists stp.u_project;
 CREATE TABLE stp.u_project (
     projectidn       integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -91,9 +81,7 @@ CREATE TABLE stp.u_project (
 CREATE UNIQUE INDEX xak1u_project
     ON stp.u_project (projectid);
 
----------------------------------------------------------
 -- U_Provider
----------------------------------------------------------
 drop table if exists stp.u_provider;
 CREATE TABLE stp.u_provider (
     provideridn   integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -105,9 +93,7 @@ CREATE TABLE stp.u_provider (
     expirets      timestamp
 );
 
----------------------------------------------------------
 -- U_Tree
----------------------------------------------------------
 drop table if exists stp.u_tree;
 CREATE TABLE stp.u_tree (
     treeidn       integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -122,9 +108,7 @@ CREATE TABLE stp.u_tree (
 CREATE UNIQUE INDEX xak1u_tree
     ON stp.u_tree (treeid);
 
----------------------------------------------------------
 -- U_TreePhoto
----------------------------------------------------------
 drop table if exists stp.u_treephoto;
 CREATE TABLE stp.u_treephoto (
     treeidn        integer NOT NULL,
@@ -139,9 +123,7 @@ CREATE TABLE stp.u_treephoto (
     PRIMARY KEY (treeidn, uploadts)
 );
 
----------------------------------------------------------
 -- U_TreeType
----------------------------------------------------------
 drop table if exists stp.u_treetype;
 CREATE TABLE stp.u_treetype (
     treetypeidn    integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -150,9 +132,7 @@ CREATE TABLE stp.u_treetype (
     propertylist   varchar(256) NOT NULL
 );
 
----------------------------------------------------------
 -- U_User
----------------------------------------------------------
 drop table if exists stp.u_user;
 CREATE TABLE stp.u_user (
     useridn         integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
