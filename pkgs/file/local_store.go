@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 )
@@ -50,13 +49,18 @@ func (l *LocalFileStore) ListFiles(ctx context.Context, folder FolderInfo) ([]Fi
 }
 
 // UploadFile saves a file to the local filesystem
-func (l *LocalFileStore) UploadFile(ctx context.Context, file FileInfo, data io.Reader) (FileInfo, error) {
+func (l *LocalFileStore) UploadFile(ctx context.Context, fileName string, fileType MimeType, folderInfo FolderInfo, data io.Reader) (FileInfo, error) {
 	if err := l.ensureRoot(); err != nil {
 		return FileInfo{}, err
 	}
 
-	fullPath := filepath.Join(l.Root, file.FilePath)
-	log.Printf("Uploading file to %s", fullPath)
+	var filePath string
+	if folderInfo.FolderPath == "" {
+		filePath = fileName
+	} else {
+		filePath = filepath.Join(folderInfo.FolderPath, fileName)
+	}
+	fullPath := filepath.Join(l.Root, filePath)
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
 		return FileInfo{}, err
 	}
@@ -72,11 +76,14 @@ func (l *LocalFileStore) UploadFile(ctx context.Context, file FileInfo, data io.
 		return FileInfo{}, err
 	}
 
-	file.Size = n
-	file.FileName = filepath.Base(fullPath)
-	file.FileStore = "local"
-
-	file.FileURL = fmt.Sprintf("static/%s", file.FilePath)
+	file := FileInfo{
+		FileStore: "local",
+		FilePath:  fullPath,
+		MimeType:  fileType,
+		FileName:  fileName,
+		Size:      n,
+		FileURL:   fmt.Sprintf("static/%s", filePath),
+	}
 	return file, nil
 }
 

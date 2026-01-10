@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"sadbhavana/tree-project/pkgs/cli"
 	"sadbhavana/tree-project/pkgs/conf"
 	"sadbhavana/tree-project/pkgs/db"
 	"sadbhavana/tree-project/web"
@@ -21,6 +22,11 @@ import (
 )
 
 func main() {
+	// If CLI args are provided, run the CLI and exit.
+	if len(os.Args) > 1 {
+		cli.RunCLI()
+		return
+	}
 	err := conf.Load()
 	if err != nil {
 		panic(err)

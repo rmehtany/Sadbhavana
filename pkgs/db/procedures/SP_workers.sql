@@ -1,22 +1,4 @@
--- GetProject
--- SaveProject
--- DeleteProject
--- GetDonor (get donor information and all the pledges made by donor)
--- SaveDonor
--- DeleteDonor
--- MergeDonor
--- GetPledge
--- SavePledge
--- DeletePledge
--- CreateTreeBulk
--- GetTree
--- SaveTree
--- DeleteTree
--- UploadPhotoInfo
--- SendDonorUpdate
--- ConfirmDonorUpdate
 
--- GetProject 
 CREATE OR REPLACE PROCEDURE STP.P_GetProject(
     IN      P_AnchorTs      TIMESTAMP,
     IN      P_UserIdn       INT,

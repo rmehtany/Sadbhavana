@@ -286,7 +286,7 @@ func FromExtension(ext string) (MimeType, error) {
 
 // FileInfo represents information about an uploaded file
 type FileInfo struct {
-	FileStore  string            `json:"file_store" validate:"required" oneof:"local"`
+	FileStore  string            `json:"file_store" validate:"required" oneof:"local google"`
 	FileID     string            `json:"file_id" validate:"required"`
 	FilePath   string            `json:"file_path,omitempty"`
 	FileURL    string            `json:"file_url,omitempty"`

@@ -23,7 +23,7 @@ You should output the following JSON in the following format:
 }` + "```"
 
 func ExtractTreeId(ctx context.Context, q *db.Queries, client llm.Client, fileInfo file.FileInfo) (ExtractTreeIdOutput, error) {
-	reader, cleanup, err := file.DownloadFile(ctx, fileInfo)
+	reader, cleanup, err := file.DownloadFile(ctx, q, fileInfo)
 	if err != nil {
 		return ExtractTreeIdOutput{}, fmt.Errorf("failed to download file: %w", err)
 	}

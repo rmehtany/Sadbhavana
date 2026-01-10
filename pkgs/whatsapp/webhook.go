@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"path/filepath"
 	"sadbhavana/tree-project/pkgs/conf"
 	"sadbhavana/tree-project/pkgs/db"
 	"sadbhavana/tree-project/pkgs/file"
@@ -171,30 +170,16 @@ func downloadMedia(mediaID string) (*file.FileInfo, error) {
 	timestamp := time.Now().Format("20060102-150405")
 	filename := fmt.Sprintf("whatsapp-%s-%s.%s", mediaID, timestamp, string(mimeType))
 
-	// Step 5: Create FileInfo structure
-	fileInfo := file.FileInfo{
-		FileStore: "local",
-		FileID:    mediaID,
-		FilePath:  filepath.Join("whatsapp", filename),
-		FileName:  filename,
-		MimeType:  mimeType,
-		Size:      mediaResp.FileSize,
-		Metadata: map[string]string{
-			"source":        "whatsapp",
-			"media_id":      mediaID,
-			"sha256":        mediaResp.SHA256,
-			"original_mime": mediaResp.MimeType,
-		},
+	folderInfo := file.FolderInfo{
+		FolderPath: "whatsapp",
 	}
 
-	log.Printf("Prepared FileInfo: %+v", fileInfo)
-
 	// Step 6: Save to local file store
-	fileStore, err := file.NewFileStore(fileInfo.FileStore, nil)
+	fileStore, err := file.NewFileStore("local", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize file store: %w", err)
 	}
-	savedFile, err := fileStore.UploadFile(ctx, fileInfo, downloadResp.Body)
+	savedFile, err := fileStore.UploadFile(ctx, filename, mimeType, folderInfo, downloadResp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save file: %w", err)
 	}
