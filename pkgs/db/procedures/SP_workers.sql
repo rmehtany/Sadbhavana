@@ -1,7 +1,7 @@
 -- GetProject
 -- SaveProject
 -- DeleteProject
--- GetDonor (get donor information and all the pledges made by donor)
+-- GetDonor 
 -- SaveDonor
 -- DeleteDonor
 -- MergeDonor
@@ -118,7 +118,7 @@ BEGIN
     SELECT string_agg(DISTINCT tp.ProjectId,',')
     INTO v_DuplicateProjectIds
     FROM T_Project tp
-    	INNER JOIN stp.U_Project up 
+    	JOIN stp.U_Project up 
      	   ON tp.ProjectId=up.ProjectId
      	   AND (tp.ProjectIdn IS NULL OR tp.ProjectIdn!=up.ProjectIdn);
 
@@ -188,6 +188,7 @@ LANGUAGE plpgsql
 AS $BODY$
 DECLARE
     v_Rc INTEGER;
+	v_ProjectIds TEXT;
     v_DeletedProjectIdns TEXT;
 BEGIN
     -- Create temp table to hold input project identifiers
@@ -202,6 +203,20 @@ BEGIN
     WHERE T->>'project_idn' IS NOT NULL;
     GET DIAGNOSTICS v_Rc=ROW_COUNT;
     CALL core.P_RunLogStep(p_RunLogIdn,v_Rc,'INSERT T_ProjectDelete');
+
+    -- Validate: Check for Projects with existing pledges 
+    SELECT string_agg(DISTINCT up.ProjectId,',')
+    INTO v_ProjectIds
+    FROM T_ProjectDelete tpd
+    	JOIN stp.U_Project up
+     	   ON tpd.ProjectIdn=up.ProjectIdn
+    	JOIN stp.U_Pledge up2
+     	   ON tpd.ProjectIdn=up2.ProjectIdn;
+
+    -- If duplicates found,raise exception
+    IF v_DuplicateProjectIds IS NOT NULL THEN
+        RAISE EXCEPTION 'Invalid ProjectId(s): %. ProjectId must not have pledges.',v_ProjectIds;
+    END IF;
 
     -- Capture the ProjectIdns that will be deleted for output
     SELECT string_agg(ProjectIdn::TEXT,',')
@@ -321,7 +336,7 @@ BEGIN
     SELECT string_agg(DISTINCT td.MobileNumber,',')
     INTO v_DuplicateMobileNumbers
     FROM T_Donor td
-        INNER JOIN stp.U_Donor ud 
+        JOIN stp.U_Donor ud 
            ON td.MobileNumber=ud.MobileNumber
            AND (td.DonorIdn IS NULL OR td.DonorIdn!=ud.DonorIdn);
 
@@ -397,6 +412,7 @@ LANGUAGE plpgsql
 AS $BODY$
 DECLARE
     v_Rc INTEGER;
+	v_DonorIdns TEXT;
     v_DeletedDonorIdns TEXT;
 BEGIN
     -- Create temp table to hold input donor identifiers
@@ -411,6 +427,18 @@ BEGIN
     WHERE T->>'donor_idn' IS NOT NULL;
     GET DIAGNOSTICS v_Rc=ROW_COUNT;
     CALL core.P_RunLogStep(p_RunLogIdn,v_Rc,'INSERT T_DonorDelete');
+
+    -- Validate: Check for Projects with existing pledges 
+    SELECT string_agg(DISTINCT tdd.DonorIdn,',')
+    INTO v_DonorIdns
+    FROM T_DonorDelete tdd
+    	JOIN stp.U_Pledge up
+     	   ON tdd.DonorIdn=up.DonorIdn;
+
+    -- If duplicates found,raise exception
+    IF v_DonorIdns IS NOT NULL THEN
+        RAISE EXCEPTION 'Invalid DonorIdn(s): %. Donor must not have pledges.',v_DonorIdns;
+    END IF;
 
     -- Capture the DonorIdns that will be deleted for output
     SELECT string_agg(DonorIdn::TEXT,',')
@@ -451,8 +479,6 @@ BEGIN
     v_DonorIdn:=NULLIF(p_InputJson->>'donor_idn','')::INT;
     v_ProjectIdn:=NULLIF(p_InputJson->>'project_idn','')::INT;
     
-    raise notice 'DonorIdn: %, ProjectIdn: %',v_DonorIdn,v_ProjectIdn;
-
     SELECT COALESCE(
         jsonb_agg(
             jsonb_build_object(
@@ -595,13 +621,6 @@ BEGIN
     INTO v_DeletedPledgeIdns
     FROM T_PledgeDelete;
 
-    -- Delete pledges
-    DELETE FROM stp.U_Pledge up
-    USING T_PledgeDelete tpd
-    WHERE up.PledgeIdn=tpd.PledgeIdn;
-    GET DIAGNOSTICS v_Rc=ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn,v_Rc,'DELETE stp.U_Pledge');
-
     -- Handle Clean option
     IF v_CreateType='Clean' THEN
         -- Check if any trees have photos
@@ -624,6 +643,13 @@ BEGIN
 	    GET DIAGNOSTICS v_Rc=ROW_COUNT;
 	    CALL core.P_RunLogStep(p_RunLogIdn,v_Rc,'DELETE stp.U_Tree');
 	END IF;
+
+    -- Delete pledges
+    DELETE FROM stp.U_Pledge up
+    USING T_PledgeDelete tpd
+    WHERE up.PledgeIdn=tpd.PledgeIdn;
+    GET DIAGNOSTICS v_Rc=ROW_COUNT;
+    CALL core.P_RunLogStep(p_RunLogIdn,v_Rc,'DELETE stp.U_Pledge');
 
     -- Return deleted pledge identifiers
     p_OutputJson:=jsonb_build_object(
