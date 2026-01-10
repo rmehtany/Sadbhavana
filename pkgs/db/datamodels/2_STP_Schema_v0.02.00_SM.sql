@@ -16,8 +16,8 @@ CREATE TABLE stp.u_donor (
     donoridn      integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     donorname     varchar(128) NOT NULL,
     mobilenumber  varchar(64) NOT NULL,
-    city          varchar(64) NOT NULL,
     emailaddr     varchar(64),
+    city          varchar(64) NOT NULL,
     country       varchar(64) NOT NULL,
     state         varchar(64) NOT NULL,
     birthdt       date,
@@ -44,12 +44,12 @@ CREATE TABLE stp.u_donorsendlog (
 drop table if exists stp.u_file;
 CREATE TABLE stp.u_file (
     fileidn      integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    provideridn  integer NOT NULL
+    filestoreid  varchar(64),
     filepath     varchar(64),
     filename     varchar(64) NOT NULL,
     filetype     varchar(64) NOT NULL,
-    filestoreid  varchar(64),
     createdts    timestamp NOT NULL,
-    provideridn  integer NOT NULL
 );
 
 ---------------------------------------------------------
@@ -77,12 +77,12 @@ CREATE UNIQUE INDEX xak1u_pledge
 drop table if exists stp.u_project;
 CREATE TABLE stp.u_project (
     projectidn       integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    projectid        varchar(64) NOT NULL,
     projectname      varchar(128) NOT NULL,
-    startdt          date NOT NULL,
     projectlocation  GEOGRAPHY(Point, 4326) NOT NULL,
+    startdt          date NOT NULL,
     treecntpledged   integer,
     treecntplanted   integer,
-    projectid        varchar(64) NOT NULL,
     propertylist     varchar(256) NOT NULL,
     useridn          int NOT NULL,
     ts               timestamp NOT NULL
@@ -111,11 +111,11 @@ CREATE TABLE stp.u_provider (
 drop table if exists stp.u_tree;
 CREATE TABLE stp.u_tree (
     treeidn       integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    treelocation  GEOGRAPHY(Point, 4326) NOT NULL,
-    treetypeidn   integer NOT NULL,
+    treeid        varchar(64) NOT NULL,
     pledgeidn     integer NOT NULL,
     creditname    varchar(64),
-    treeid        varchar(64) NOT NULL,
+    treetypeidn   integer NOT NULL,
+    treelocation  GEOGRAPHY(Point, 4326) NOT NULL,
     propertylist  varchar(256) NOT NULL
 );
 
@@ -129,12 +129,12 @@ drop table if exists stp.u_treephoto;
 CREATE TABLE stp.u_treephoto (
     treeidn        integer NOT NULL,
     uploadts       timestamp NOT NULL,
-    donorsentts    timestamp,
-    photolocation  GEOGRAPHY(Point, 4326) NOT NULL,
-    propertylist   varchar(256) NOT NULL,
-    fileidn        integer NOT NULL,
-    photots        timestamp NOT NULL,
     donoridn       integer NOT NULL,
+    fileidn        integer NOT NULL,
+    photolocation  GEOGRAPHY(Point, 4326) NOT NULL,
+    photots        timestamp NOT NULL,
+    donorsentts    timestamp,
+    propertylist   varchar(256) NOT NULL,
     useridn         int NOT NULL,
     PRIMARY KEY (treeidn, uploadts)
 );
