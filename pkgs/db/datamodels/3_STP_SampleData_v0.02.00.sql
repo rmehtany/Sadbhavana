@@ -5,190 +5,185 @@
 -- TRUNCATE ALL TABLES (Clear existing data)
 -- Note: Order matters due to foreign key dependencies
 ---------------------------------------------------------
-TRUNCATE TABLE stp.u_donorsendlog CASCADE;
-TRUNCATE TABLE stp.u_treephoto CASCADE;
-TRUNCATE TABLE stp.u_tree CASCADE;
-TRUNCATE TABLE stp.u_file CASCADE;
-TRUNCATE TABLE stp.u_pledge CASCADE;
-TRUNCATE TABLE stp.u_donor CASCADE;
-TRUNCATE TABLE stp.u_project CASCADE;
-TRUNCATE TABLE stp.u_treetype CASCADE;
-TRUNCATE TABLE stp.u_provider CASCADE;
-TRUNCATE TABLE stp.u_user CASCADE;
+TRUNCATE TABLE stp.u_donorsendlog RESTART IDENTITY;
+TRUNCATE TABLE stp.u_treephoto RESTART IDENTITY;
+TRUNCATE TABLE stp.u_tree RESTART IDENTITY;
+TRUNCATE TABLE stp.u_file RESTART IDENTITY;
+TRUNCATE TABLE stp.u_pledge RESTART IDENTITY;
+TRUNCATE TABLE stp.u_donor RESTART IDENTITY;
+TRUNCATE TABLE stp.u_project RESTART IDENTITY;
+TRUNCATE TABLE stp.u_treetype RESTART IDENTITY;
+TRUNCATE TABLE stp.u_provider RESTART IDENTITY;
+TRUNCATE TABLE stp.u_user RESTART IDENTITY;
 
--- Reset identity sequences (optional - ensures IDs start from 1)
-ALTER SEQUENCE stp.u_user_userid_seq RESTART WITH 1;
-ALTER SEQUENCE stp.u_provider_provideridn_seq RESTART WITH 1;
-ALTER SEQUENCE stp.u_treetype_treetypeidn_seq RESTART WITH 1;
-ALTER SEQUENCE stp.u_donor_donoridn_seq RESTART WITH 1;
-ALTER SEQUENCE stp.u_project_projectidn_seq RESTART WITH 1;
-ALTER SEQUENCE stp.u_pledge_pledgeidn_seq RESTART WITH 1;
-ALTER SEQUENCE stp.u_tree_treeidn_seq RESTART WITH 1;
-ALTER SEQUENCE stp.u_file_fileidn_seq RESTART WITH 1;
-ALTER SEQUENCE stp.u_donorsendlog_idn_seq RESTART WITH 1;
+-- Sample Data for Tree Planting Database Schema
+-- Run this after creating the schema structure
 
 ---------------------------------------------------------
--- U_User
+-- U_User - Insert users first (referenced by other tables)
 ---------------------------------------------------------
-INSERT INTO stp.u_user (username, useridcreator, ts, mobilenumber) VALUES
-('admin001', 'system', '2024-01-01', '+91-9900000001'),
-('admin002', 'admin001', '2024-01-15', '+91-9900000002'),
-('admin003', 'admin001', '2024-02-01', '+91-9900000003'),
-('fielduser001', 'admin002', '2024-03-01', '+91-9900000004'),
-('fielduser002', 'admin002', '2024-03-15', '+91-9900000005');
+INSERT INTO stp.u_user (username, mobilenumber, useridncreator, ts) VALUES
+('admin', '+1-555-0100', NULL, '2024-01-01 10:00:00'),
+('john_doe', '+1-555-0101', 1, '2024-01-15 09:30:00'),
+('jane_smith', '+1-555-0102', 1, '2024-01-20 14:00:00'),
+('mike_wilson', '+1-555-0103', 1, '2024-02-01 11:00:00'),
+('sarah_jones', '+1-555-0104', 1, '2024-02-10 16:30:00');
 
 ---------------------------------------------------------
--- U_Provider
+-- U_Provider - Cloud storage providers
 ---------------------------------------------------------
 INSERT INTO stp.u_provider (providername, authtype, authconfig, accesstoken, refreshtoken, expirets) VALUES
-('Google Drive', 'OAuth2', 'client_id=abc123', 'ya29.a0AfH6SMB...', 'rt_1xY2z3...', '2025-12-26 10:30:00'),
-('Dropbox', 'OAuth2', 'app_key=xyz789', 'sl.BqwE3rT...', 'rt_9Qw8E7...', '2025-12-26 15:45:00'),
-('AWS S3', 'AccessKey', 'bucket=treephotos', 'AKIAIOSFODNN7...', NULL, NULL);
+('AWS S3', 'OAuth2', '{"region":"us-east-1","bucket":"tree-photos"}', 'aws_access_token_123', 'aws_refresh_token_123', '2025-12-31 23:59:59'),
+('Google Cloud Storage', 'OAuth2', '{"project":"tree-project","bucket":"tree-images"}', 'gcp_access_token_456', 'gcp_refresh_token_456', '2025-12-31 23:59:59'),
+('Azure Blob Storage', 'OAuth2', '{"account":"treeproject","container":"photos"}', 'azure_access_token_789', 'azure_refresh_token_789', '2025-12-31 23:59:59');
 
 ---------------------------------------------------------
--- U_TreeType
+-- U_TreeType - Different tree species
 ---------------------------------------------------------
 INSERT INTO stp.u_treetype (treetypename, avglifeyears, propertylist) VALUES
-('Oak Tree', 300, '{"carbonOffset": "22kg/year", "height": "20-30m"}'),
-('Pine Tree', 150, '{"carbonOffset": "15kg/year", "height": "15-45m"}'),
-('Mango Tree', 100, '{"carbonOffset": "18kg/year", "fruit": "true", "height": "10-15m"}'),
-('Banyan Tree', 500, '{"carbonOffset": "25kg/year", "height": "20-25m", "sacred": "true"}'),
-('Neem Tree', 200, '{"carbonOffset": "20kg/year", "medicinal": "true", "height": "15-20m"}'),
-('Teak Tree', 100, '{"carbonOffset": "19kg/year", "timber": "true", "height": "30-40m"}'),
-('Bamboo', 40, '{"carbonOffset": "12kg/year", "fastGrowing": "true", "height": "10-20m"}');
+('Oak', 300, '{"scientific_name":"Quercus","growth_rate":"slow","height":"20-30m"}'),
+('Pine', 150, '{"scientific_name":"Pinus","growth_rate":"medium","height":"15-45m"}'),
+('Maple', 100, '{"scientific_name":"Acer","growth_rate":"medium","height":"10-25m"}'),
+('Birch', 80, '{"scientific_name":"Betula","growth_rate":"fast","height":"12-20m"}'),
+('Cedar', 200, '{"scientific_name":"Cedrus","growth_rate":"slow","height":"30-40m"}'),
+('Willow', 75, '{"scientific_name":"Salix","growth_rate":"fast","height":"10-20m"}'),
+('Eucalyptus', 250, '{"scientific_name":"Eucalyptus","growth_rate":"fast","height":"30-55m"}'),
+('Mango', 100, '{"scientific_name":"Mangifera indica","growth_rate":"medium","height":"10-40m"}');
 
 ---------------------------------------------------------
--- U_Donor
+-- U_Donor - People who donate/sponsor trees
 ---------------------------------------------------------
-INSERT INTO stp.u_donor (donorname, mobilenumber, city, emailaddr, country, state, propertylist, birthdt, userid, ts) VALUES
-('Rajesh Kumar', '+91-9876543210', 'Mumbai', 'rajesh.kumar@email.com', 'India', 'Maharashtra', '{"vip": "true", "newsletter": "true"}', '1985-03-15', 'admin001', '2024-01-10 09:00:00'),
-('Sarah Johnson', '+1-555-0123', 'New York', 'sarah.j@email.com', 'USA', 'New York', '{"corporate": "true", "company": "TechCorp"}', '1990-07-22', 'admin001', '2024-01-15 10:30:00'),
-('Priya Sharma', '+91-9123456789', 'Bangalore', 'priya.sharma@email.com', 'India', 'Karnataka', '{"newsletter": "true"}', '1988-11-30', 'admin002', '2024-02-01 14:20:00'),
-('Michael Chen', '+86-138-0000-1234', 'Shanghai', 'michael.chen@email.com', 'China', 'Shanghai', '{"language": "zh", "newsletter": "true"}', '1982-05-18', 'admin001', '2024-02-10 08:45:00'),
-('Fatima Al-Sayed', '+971-50-123-4567', 'Dubai', 'fatima.as@email.com', 'UAE', 'Dubai', '{"vip": "true", "corporate": "true"}', '1975-09-08', 'admin003', '2024-03-05 11:00:00'),
-('John Smith', '+44-7700-900123', 'London', 'john.smith@email.com', 'UK', 'England', '{"newsletter": "false"}', '1995-12-25', 'admin002', '2024-03-20 16:30:00'),
-('Aisha Patel', '+91-9988776655', 'Ahmedabad', 'aisha.patel@email.com', 'India', 'Gujarat', '{"newsletter": "true", "student": "true"}', '2000-01-10', 'admin001', '2024-04-15 09:15:00'),
-('Carlos Rodriguez', '+52-55-1234-5678', 'Mexico City', 'carlos.r@email.com', 'Mexico', 'CDMX', '{"language": "es"}', '1978-06-14', 'admin003', '2024-05-01 10:00:00');
+INSERT INTO stp.u_donor (donorname, mobilenumber, city, emailaddr, country, state, birthdt, propertylist, useridn, ts) VALUES
+('Robert Anderson', '+1-555-1001', 'Seattle', 'robert.anderson@email.com', 'USA', 'Washington', '1985-03-15', '{"donor_level":"gold","preferences":"oak,pine"}', 2, '2024-03-01 10:00:00'),
+('Emily Chen', '+1-555-1002', 'San Francisco', 'emily.chen@email.com', 'USA', 'California', '1990-07-22', '{"donor_level":"platinum","preferences":"all"}', 2, '2024-03-05 14:30:00'),
+('David Kumar', '+91-98765-43210', 'Mumbai', 'david.kumar@email.com', 'India', 'Maharashtra', '1988-11-10', '{"donor_level":"silver","preferences":"mango,eucalyptus"}', 3, '2024-03-10 09:15:00'),
+('Maria Garcia', '+34-612-345-678', 'Madrid', 'maria.garcia@email.com', 'Spain', 'Madrid', '1992-05-30', '{"donor_level":"gold","preferences":"cedar,oak"}', 3, '2024-03-15 16:45:00'),
+('James Wilson', '+44-7700-900123', 'London', 'james.wilson@email.com', 'UK', 'England', '1983-09-18', '{"donor_level":"bronze","preferences":"birch,maple"}', 4, '2024-03-20 11:20:00'),
+('Lisa Thompson', '+1-555-1003', 'Portland', 'lisa.thompson@email.com', 'USA', 'Oregon', '1995-12-05', '{"donor_level":"silver","preferences":"pine,willow"}', 4, '2024-03-25 13:00:00'),
+('Ahmed Hassan', '+20-100-123-4567', 'Cairo', 'ahmed.hassan@email.com', 'Egypt', 'Cairo', '1987-04-25', '{"donor_level":"gold","preferences":"eucalyptus"}', 5, '2024-04-01 10:30:00'),
+('Sophie Dubois', '+33-6-12-34-56-78', 'Paris', 'sophie.dubois@email.com', 'France', 'Île-de-France', '1991-08-14', '{"donor_level":"platinum","preferences":"oak,cedar"}', 5, '2024-04-05 15:15:00');
 
 ---------------------------------------------------------
--- U_Project
--- Note: projectlocation uses GEOGRAPHY(Point, 4326) with ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
+-- U_Project - Tree planting projects in different locations
 ---------------------------------------------------------
-INSERT INTO stp.u_project (projectname, startdt, projectlocation, treecntpledged, treecntplanted, projectid, propertylist, userid, ts) VALUES
-('Green Mumbai Initiative', '2024-01-15', ST_SetSRID(ST_MakePoint(72.8777, 19.0760), 4326), 5000, 3250, 'PROJ-2024-001', '{"sdgGoal": "13,15", "status": "active"}', 'admin001', '2024-01-10 09:00:00'),
-('Amazon Reforestation', '2024-02-01', ST_SetSRID(ST_MakePoint(-62.2159, -3.4653), 4326), 10000, 4500, 'PROJ-2024-002', '{"sdgGoal": "15", "status": "active", "partnership": "WWF"}', 'admin001', '2024-01-25 10:30:00'),
-('Urban Forest NYC', '2024-03-01', ST_SetSRID(ST_MakePoint(-73.9855, 40.7580), 4326), 2000, 1800, 'PROJ-2024-003', '{"sdgGoal": "11,13", "status": "active", "urban": "true"}', 'admin002', '2024-02-20 14:00:00'),
-('Himalayan Conservation', '2024-04-01', ST_SetSRID(ST_MakePoint(79.0193, 30.0668), 4326), 8000, 2100, 'PROJ-2024-004', '{"sdgGoal": "15", "status": "active", "altitude": "high"}', 'admin001', '2024-03-15 08:30:00'),
-('Desert Greening Dubai', '2024-05-15', ST_SetSRID(ST_MakePoint(55.2708, 25.2048), 4326), 3000, 1200, 'PROJ-2024-005', '{"sdgGoal": "13,15", "status": "active", "climate": "arid"}', 'admin003', '2024-05-01 11:00:00'),
-('School Forest Program', '2024-06-01', ST_SetSRID(ST_MakePoint(77.5946, 12.9716), 4326), 5000, 800, 'PROJ-2024-006', '{"sdgGoal": "4,13", "status": "active", "educational": "true"}', 'admin002', '2024-05-20 09:45:00');
+INSERT INTO stp.u_project (projectid, projectname, projectlocation, startdt, treecntpledged, treecntplanted, propertylist, useridn, ts) VALUES
+('PROJ001', 'Pacific Northwest Forest Restoration', ST_GeogFromText('POINT(-122.3321 47.6062)'), '2024-04-01', 1000, 250, '{"area_hectares":50,"target_species":"oak,pine,cedar"}', 2, '2024-03-01 09:00:00'),
+('PROJ002', 'California Coastal Reforestation', ST_GeogFromText('POINT(-122.4194 37.7749)'), '2024-05-01', 750, 180, '{"area_hectares":35,"target_species":"eucalyptus,pine"}', 2, '2024-03-10 10:30:00'),
+('PROJ003', 'Mumbai Urban Green Initiative', ST_GeogFromText('POINT(72.8777 19.0760)'), '2024-03-15', 500, 320, '{"area_hectares":20,"target_species":"mango,eucalyptus"}', 3, '2024-03-05 11:00:00'),
+('PROJ004', 'Spanish Mountain Regreening', ST_GeogFromText('POINT(-3.7038 40.4168)'), '2024-06-01', 600, 150, '{"area_hectares":40,"target_species":"oak,cedar"}', 3, '2024-03-12 14:00:00'),
+('PROJ005', 'Thames Valley Woodland Project', ST_GeogFromText('POINT(-0.1276 51.5074)'), '2024-07-01', 400, 95, '{"area_hectares":25,"target_species":"birch,maple,oak"}', 4, '2024-03-18 09:30:00');
 
 ---------------------------------------------------------
--- U_Pledge
+-- U_Pledge - Donor commitments to projects
 ---------------------------------------------------------
-INSERT INTO stp.u_pledge (projectidn, donoridn, treecntpledged, pledgets, treecntplanted, propertylist) VALUES
-(1, 1, 100, '2024-01-15 10:00:00', 100, '{"paymentMethod": "creditCard", "amount": "5000"}'),
-(1, 2, 500, '2024-01-20 14:30:00', 450, '{"paymentMethod": "bankTransfer", "amount": "25000", "corporate": "true"}'),
-(2, 3, 50, '2024-02-05 09:15:00', 50, '{"paymentMethod": "upi", "amount": "2500"}'),
-(2, 4, 200, '2024-02-15 11:45:00', 150, '{"paymentMethod": "wechat", "amount": "10000"}'),
-(3, 2, 300, '2024-03-10 16:00:00', 300, '{"paymentMethod": "bankTransfer", "amount": "15000", "corporate": "true"}'),
-(3, 6, 25, '2024-03-25 10:30:00', 25, '{"paymentMethod": "paypal", "amount": "1250"}'),
-(4, 1, 150, '2024-04-05 08:00:00', 80, '{"paymentMethod": "creditCard", "amount": "7500"}'),
-(4, 5, 1000, '2024-04-20 12:00:00', 300, '{"paymentMethod": "bankTransfer", "amount": "50000", "corporate": "true"}'),
-(5, 5, 500, '2024-05-18 10:00:00', 200, '{"paymentMethod": "bankTransfer", "amount": "25000"}'),
-(5, 8, 75, '2024-05-25 15:30:00', 40, '{"paymentMethod": "creditCard", "amount": "3750"}'),
-(6, 7, 30, '2024-06-05 09:00:00', 15, '{"paymentMethod": "upi", "amount": "1500", "student": "true"}'),
-(6, 3, 100, '2024-06-10 11:00:00', 20, '{"paymentMethod": "upi", "amount": "5000"}');
+INSERT INTO stp.u_pledge (projectidn, donoridn, pledgets, treecntpledged, treecntplanted, pledgecredit, propertylist, useridn) VALUES
+(1, 1, '2024-03-15 10:00:00', 100, 25, '{"Robert Anderson": 50, "Anderson Family": 30, "Memorial Fund": 20}', '{"payment_method":"credit_card","recurring":false}', 2),
+(1, 2, '2024-03-18 14:30:00', 200, 50, '{"Emily Chen": 120, "Chen Corporation": 80}', '{"payment_method":"paypal","recurring":true}', 2),
+(2, 2, '2024-03-20 11:00:00', 150, 40, '{"Emily Chen": 100, "Tech For Trees Initiative": 50}', '{"payment_method":"paypal","recurring":true}', 2),
+(3, 3, '2024-03-22 09:15:00', 120, 80, '{"David Kumar": 70, "Kumar Enterprises": 50}', '{"payment_method":"upi","recurring":false}', 3),
+(4, 4, '2024-03-25 16:45:00', 80, 30, '{"Maria Garcia": 50, "Garcia & Associates": 30}', '{"payment_method":"bank_transfer","recurring":false}', 3),
+(5, 5, '2024-03-28 11:20:00', 60, 15, '{"James Wilson": 35, "Wilson Family Trust": 25}', '{"payment_method":"credit_card","recurring":false}', 4),
+(1, 6, '2024-04-01 13:00:00', 90, 20, '{"Lisa Thompson": 60, "Green Portland Fund": 30}', '{"payment_method":"credit_card","recurring":false}', 4),
+(3, 7, '2024-04-03 10:30:00', 100, 65, '{"Ahmed Hassan": 100}', '{"payment_method":"bank_transfer","recurring":false}', 5),
+(4, 8, '2024-04-05 15:15:00', 110, 50, '{"Sophie Dubois": 60, "Dubois Foundation": 50}', '{"payment_method":"credit_card","recurring":true}', 5),
+(2, 1, '2024-04-08 10:00:00', 75, 20, '{"Robert Anderson": 40, "In Memory of John Anderson": 35}', '{"payment_method":"credit_card","recurring":false}', 2);
 
 ---------------------------------------------------------
--- U_Tree
--- Note: treelocation uses GEOGRAPHY(Point, 4326) with ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
+-- U_Tree - Individual planted trees
 ---------------------------------------------------------
-INSERT INTO stp.u_tree (treelocation, treetypeidn, pledgeidn, titlename, treeid, propertylist) VALUES
--- Pledge 1 (100 trees planted in Mumbai area)
-(ST_SetSRID(ST_MakePoint(72.8777, 19.0760), 4326), 1, 1, 'In Memory of Grandpa Kumar', 'TREE-2024-000001', '{"gps": "verified", "qrCode": "QR001"}'),
-(ST_SetSRID(ST_MakePoint(72.8779, 19.0762), 4326), 2, 1, NULL, 'TREE-2024-000002', '{"gps": "verified", "qrCode": "QR002"}'),
-(ST_SetSRID(ST_MakePoint(72.8781, 19.0765), 4326), 5, 1, NULL, 'TREE-2024-000003', '{"gps": "verified", "qrCode": "QR003"}'),
--- Pledge 2 (450 trees - showing first few in Mumbai)
-(ST_SetSRID(ST_MakePoint(72.8785, 19.0770), 4326), 3, 2, 'TechCorp Green Initiative', 'TREE-2024-000101', '{"gps": "verified", "corporate": "true"}'),
-(ST_SetSRID(ST_MakePoint(72.8787, 19.0772), 4326), 4, 2, NULL, 'TREE-2024-000102', '{"gps": "verified", "corporate": "true"}'),
-(ST_SetSRID(ST_MakePoint(72.8790, 19.0775), 4326), 1, 2, NULL, 'TREE-2024-000103', '{"gps": "verified", "corporate": "true"}'),
--- Pledge 3 (50 trees in Amazon)
-(ST_SetSRID(ST_MakePoint(-62.2159, -3.4653), 4326), 2, 3, 'For Future Generations', 'TREE-2024-000201', '{"gps": "verified", "rainforest": "true"}'),
-(ST_SetSRID(ST_MakePoint(-62.2161, -3.4655), 4326), 6, 3, NULL, 'TREE-2024-000202', '{"gps": "verified", "rainforest": "true"}'),
--- Pledge 4 (150 trees in Amazon)
-(ST_SetSRID(ST_MakePoint(-62.2165, -3.4660), 4326), 1, 4, NULL, 'TREE-2024-000301', '{"gps": "verified"}'),
-(ST_SetSRID(ST_MakePoint(-62.2167, -3.4662), 4326), 5, 4, NULL, 'TREE-2024-000302', '{"gps": "verified"}'),
--- Pledge 5 (300 trees in NYC)
-(ST_SetSRID(ST_MakePoint(-73.9855, 40.7580), 4326), 2, 5, 'NYC Clean Air Project', 'TREE-2024-000401', '{"gps": "verified", "urban": "true"}'),
-(ST_SetSRID(ST_MakePoint(-73.9857, 40.7582), 4326), 7, 5, NULL, 'TREE-2024-000402', '{"gps": "verified", "urban": "true"}'),
--- Pledge 6 (25 trees in NYC)
-(ST_SetSRID(ST_MakePoint(-73.9860, 40.7585), 4326), 3, 6, 'Birthday Tree 2024', 'TREE-2024-000501', '{"gps": "verified", "urban": "true"}'),
--- Pledge 7 (80 trees in Himalayas)
-(ST_SetSRID(ST_MakePoint(79.0193, 30.0668), 4326), 4, 7, NULL, 'TREE-2024-000601', '{"gps": "verified", "altitude": "1800m"}'),
-(ST_SetSRID(ST_MakePoint(79.0195, 30.0670), 4326), 5, 7, NULL, 'TREE-2024-000602', '{"gps": "verified", "altitude": "1750m"}'),
--- Pledge 8 (300 trees in Himalayas)
-(ST_SetSRID(ST_MakePoint(79.0197, 30.0672), 4326), 1, 8, 'Corporate Sustainability Initiative', 'TREE-2024-000701', '{"gps": "verified", "corporate": "true"}'),
-(ST_SetSRID(ST_MakePoint(79.0200, 30.0675), 4326), 6, 8, NULL, 'TREE-2024-000702', '{"gps": "verified", "corporate": "true"}'),
--- Pledge 9 (200 trees in Dubai)
-(ST_SetSRID(ST_MakePoint(55.2708, 25.2048), 4326), 5, 9, NULL, 'TREE-2024-000801', '{"gps": "verified", "irrigation": "drip"}'),
-(ST_SetSRID(ST_MakePoint(55.2710, 25.2050), 4326), 3, 9, NULL, 'TREE-2024-000802', '{"gps": "verified", "irrigation": "drip"}'),
--- Pledge 10 (40 trees in Dubai)
-(ST_SetSRID(ST_MakePoint(55.2712, 25.2052), 4326), 7, 10, NULL, 'TREE-2024-000901', '{"gps": "verified", "fastGrowing": "true"}'),
--- Pledge 11 (15 trees for School Program)
-(ST_SetSRID(ST_MakePoint(72.5714, 23.0225), 4326), 2, 11, 'Student Environmental Club', 'TREE-2024-001001', '{"gps": "verified", "school": "true"}'),
--- Pledge 12 (20 trees for School Program)
-(ST_SetSRID(ST_MakePoint(77.5946, 12.9716), 4326), 5, 12, NULL, 'TREE-2024-001101', '{"gps": "verified", "school": "true"}');
+INSERT INTO stp.u_tree (treelocation, treetypeidn, pledgeidn, creditname, treeid, propertylist) VALUES
+-- Trees for Project 1, Pledge 1 (Robert Anderson, 25 trees)
+(ST_GeogFromText('POINT(-122.3325 47.6065)'), 1, 1, 'Robert Anderson', 'TREE-P1-001', '{"planted_date":"2024-04-15","health":"excellent"}'),
+(ST_GeogFromText('POINT(-122.3328 47.6068)'), 2, 1, 'Robert Anderson', 'TREE-P1-002', '{"planted_date":"2024-04-15","health":"good"}'),
+(ST_GeogFromText('POINT(-122.3330 47.6070)'), 5, 1, 'Robert Anderson', 'TREE-P1-003', '{"planted_date":"2024-04-16","health":"excellent"}'),
+-- Trees for Project 1, Pledge 2 (Emily Chen, 50 trees)
+(ST_GeogFromText('POINT(-122.3335 47.6075)'), 1, 2, 'Emily Chen', 'TREE-P1-004', '{"planted_date":"2024-04-20","health":"excellent"}'),
+(ST_GeogFromText('POINT(-122.3338 47.6078)'), 2, 2, 'Emily Chen', 'TREE-P1-005', '{"planted_date":"2024-04-20","health":"good"}'),
+(ST_GeogFromText('POINT(-122.3340 47.6080)'), 1, 2, 'Emily Chen', 'TREE-P1-006', '{"planted_date":"2024-04-21","health":"excellent"}'),
+-- Trees for Project 2, Pledge 3 (Emily Chen, 40 trees)
+(ST_GeogFromText('POINT(-122.4198 37.7752)'), 7, 3, 'Emily Chen', 'TREE-P2-001', '{"planted_date":"2024-05-10","health":"excellent"}'),
+(ST_GeogFromText('POINT(-122.4200 37.7755)'), 2, 3, 'Emily Chen', 'TREE-P2-002', '{"planted_date":"2024-05-10","health":"good"}'),
+-- Trees for Project 3, Pledge 4 (David Kumar, 80 trees)
+(ST_GeogFromText('POINT(72.8780 19.0763)'), 8, 4, 'David Kumar', 'TREE-P3-001', '{"planted_date":"2024-03-25","health":"excellent"}'),
+(ST_GeogFromText('POINT(72.8783 19.0766)'), 7, 4, 'David Kumar', 'TREE-P3-002', '{"planted_date":"2024-03-25","health":"excellent"}'),
+(ST_GeogFromText('POINT(72.8786 19.0769)'), 8, 4, 'David Kumar', 'TREE-P3-003', '{"planted_date":"2024-03-26","health":"good"}'),
+-- Trees for Project 4, Pledge 5 (Maria Garcia, 30 trees)
+(ST_GeogFromText('POINT(-3.7040 40.4170)'), 1, 5, 'Maria Garcia', 'TREE-P4-001', '{"planted_date":"2024-06-15","health":"excellent"}'),
+(ST_GeogFromText('POINT(-3.7043 40.4173)'), 5, 5, 'Maria Garcia', 'TREE-P4-002', '{"planted_date":"2024-06-15","health":"good"}'),
+-- Trees for Project 5, Pledge 6 (James Wilson, 15 trees)
+(ST_GeogFromText('POINT(-0.1278 51.5076)'), 4, 6, 'James Wilson', 'TREE-P5-001', '{"planted_date":"2024-07-20","health":"excellent"}'),
+(ST_GeogFromText('POINT(-0.1280 51.5078)'), 3, 6, 'James Wilson', 'TREE-P5-002', '{"planted_date":"2024-07-20","health":"good"}'),
+-- Trees for Project 1, Pledge 7 (Lisa Thompson, 20 trees)
+(ST_GeogFromText('POINT(-122.3345 47.6085)'), 2, 7, 'Lisa Thompson', 'TREE-P1-007', '{"planted_date":"2024-04-25","health":"excellent"}'),
+(ST_GeogFromText('POINT(-122.3348 47.6088)'), 6, 7, 'Lisa Thompson', 'TREE-P1-008', '{"planted_date":"2024-04-25","health":"good"}'),
+-- Trees for Project 3, Pledge 8 (Ahmed Hassan, 65 trees)
+(ST_GeogFromText('POINT(72.8789 19.0772)'), 7, 8, 'Ahmed Hassan', 'TREE-P3-004', '{"planted_date":"2024-04-10","health":"excellent"}'),
+(ST_GeogFromText('POINT(72.8792 19.0775)'), 8, 8, 'Ahmed Hassan', 'TREE-P3-005', '{"planted_date":"2024-04-10","health":"excellent"}'),
+-- Trees for Project 4, Pledge 9 (Sophie Dubois, 50 trees)
+(ST_GeogFromText('POINT(-3.7046 40.4176)'), 1, 9, 'Sophie Dubois', 'TREE-P4-003', '{"planted_date":"2024-06-20","health":"excellent"}'),
+(ST_GeogFromText('POINT(-3.7049 40.4179)'), 5, 9, 'Sophie Dubois', 'TREE-P4-004', '{"planted_date":"2024-06-20","health":"good"}');
 
 ---------------------------------------------------------
--- U_File
+-- U_File - Photo files
 ---------------------------------------------------------
 INSERT INTO stp.u_file (filepath, filename, filetype, filestoreid, createdts, provideridn) VALUES
-('/photos/2024/01/', 'tree_001_planted.jpg', 'image/jpeg', 'gdrive_abc123xyz', '2024-01-20 10:00:00', 1),
-('/photos/2024/01/', 'tree_001_6months.jpg', 'image/jpeg', 'gdrive_def456uvw', '2024-07-20 09:30:00', 1),
-('/photos/2024/01/', 'tree_002_planted.jpg', 'image/jpeg', 'gdrive_ghi789rst', '2024-01-21 11:15:00', 1),
-('/photos/2024/01/', 'tree_003_planted.jpg', 'image/jpeg', 'dropbox_jkl012mno', '2024-01-22 14:30:00', 2),
-('/photos/2024/02/', 'tree_101_planted.jpg', 'image/jpeg', 's3_pqr345stu', '2024-02-10 08:45:00', 3),
-('/photos/2024/02/', 'tree_101_3months.jpg', 'image/jpeg', 's3_vwx678yza', '2024-05-10 10:00:00', 3),
-('/photos/2024/03/', 'tree_201_planted.jpg', 'image/jpeg', 'gdrive_bcd901efg', '2024-03-15 12:00:00', 1),
-('/photos/2024/03/', 'tree_301_planted.jpg', 'image/jpeg', 'dropbox_hij234klm', '2024-03-25 09:15:00', 2),
-('/photos/2024/04/', 'tree_401_planted.jpg', 'image/jpeg', 's3_nop567qrs', '2024-04-05 15:30:00', 3),
-('/photos/2024/05/', 'tree_501_planted.jpg', 'image/jpeg', 'gdrive_tuv890wxy', '2024-05-20 11:45:00', 1);
+('/photos/2024/04/', 'tree_photo_001.jpg', 'image/jpeg', 's3://tree-photos/001.jpg', '2024-04-16 10:00:00', 1),
+('/photos/2024/04/', 'tree_photo_002.jpg', 'image/jpeg', 's3://tree-photos/002.jpg', '2024-04-16 10:05:00', 1),
+('/photos/2024/04/', 'tree_photo_003.jpg', 'image/jpeg', 's3://tree-photos/003.jpg', '2024-04-17 14:30:00', 1),
+('/photos/2024/04/', 'tree_photo_004.jpg', 'image/jpeg', 's3://tree-photos/004.jpg', '2024-04-22 11:00:00', 1),
+('/photos/2024/05/', 'tree_photo_005.jpg', 'image/jpeg', 'gcs://tree-images/005.jpg', '2024-05-11 09:15:00', 2),
+('/photos/2024/05/', 'tree_photo_006.jpg', 'image/jpeg', 'gcs://tree-images/006.jpg', '2024-05-11 09:20:00', 2),
+('/photos/2024/03/', 'tree_photo_007.jpg', 'image/jpeg', 'gcs://tree-images/007.jpg', '2024-03-26 16:00:00', 2),
+('/photos/2024/03/', 'tree_photo_008.jpg', 'image/jpeg', 'gcs://tree-images/008.jpg', '2024-03-27 10:30:00', 2),
+('/photos/2024/06/', 'tree_photo_009.jpg', 'image/jpeg', 'azure://photos/009.jpg', '2024-06-16 13:45:00', 3),
+('/photos/2024/06/', 'tree_photo_010.jpg', 'image/jpeg', 'azure://photos/010.jpg', '2024-06-21 15:20:00', 3);
 
 ---------------------------------------------------------
--- U_TreePhoto
--- Note: photolocation uses GEOGRAPHY(Point, 4326) with ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
+-- U_TreePhoto - Photos of planted trees
 ---------------------------------------------------------
-INSERT INTO stp.u_treephoto (treeidn, uploadts, donorsentts, photolocation, propertylist, fileidn, photots, donoridn, userid) VALUES
-(1, '2024-01-20 10:00:00', '2024-01-22 14:30:00', ST_SetSRID(ST_MakePoint(72.8777, 19.0760), 4326), '{"stage": "planted", "photographer": "field_team_01"}', 1, '2024-01-20 09:45:00', 1, 'admin001'),
-(1, '2024-07-20 09:30:00', '2024-07-23 10:00:00', ST_SetSRID(ST_MakePoint(72.8777, 19.0760), 4326), '{"stage": "6months", "height": "1.2m", "health": "excellent"}', 2, '2024-07-20 09:00:00', 1, 'admin001'),
-(2, '2024-01-21 11:15:00', '2024-01-24 16:45:00', ST_SetSRID(ST_MakePoint(72.8779, 19.0762), 4326), '{"stage": "planted", "photographer": "field_team_01"}', 3, '2024-01-21 11:00:00', 1, 'admin001'),
-(3, '2024-01-22 14:30:00', '2024-01-25 09:15:00', ST_SetSRID(ST_MakePoint(72.8781, 19.0765), 4326), '{"stage": "planted", "photographer": "field_team_02"}', 4, '2024-01-22 14:15:00', 1, 'admin002'),
-(4, '2024-02-10 08:45:00', '2024-02-12 10:30:00', ST_SetSRID(ST_MakePoint(72.8785, 19.0770), 4326), '{"stage": "planted", "photographer": "corporate_team"}', 5, '2024-02-10 08:30:00', 2, 'admin001'),
-(4, '2024-05-10 10:00:00', '2024-05-13 14:00:00', ST_SetSRID(ST_MakePoint(72.8785, 19.0770), 4326), '{"stage": "3months", "height": "0.8m", "health": "good"}', 6, '2024-05-10 09:30:00', 2, 'admin001'),
-(7, '2024-03-15 12:00:00', '2024-03-18 11:00:00', ST_SetSRID(ST_MakePoint(-62.2159, -3.4653), 4326), '{"stage": "planted", "photographer": "field_team_03"}', 7, '2024-03-15 11:30:00', 3, 'admin002'),
-(9, '2024-03-25 09:15:00', '2024-03-28 15:30:00', ST_SetSRID(ST_MakePoint(-62.2165, -3.4660), 4326), '{"stage": "planted", "photographer": "field_team_04"}', 8, '2024-03-25 09:00:00', 4, 'admin001'),
-(11, '2024-04-05 15:30:00', '2024-04-08 10:45:00', ST_SetSRID(ST_MakePoint(-73.9855, 40.7580), 4326), '{"stage": "planted", "photographer": "urban_team"}', 9, '2024-04-05 15:00:00', 2, 'admin002'),
-(13, '2024-05-20 11:45:00', '2024-05-23 09:30:00', ST_SetSRID(ST_MakePoint(-73.9860, 40.7585), 4326), '{"stage": "planted", "photographer": "volunteer_01"}', 10, '2024-05-20 11:30:00', 6, 'admin001');
+INSERT INTO stp.u_treephoto (treeidn, uploadts, donorsentts, photolocation, propertylist, fileidn, photots, donoridn, useridn) VALUES
+(1, '2024-04-16 10:00:00', '2024-04-17 08:00:00', ST_GeogFromText('POINT(-122.3325 47.6065)'), '{"quality":"high","camera":"iPhone 13"}', 1, '2024-04-15 14:30:00', 1, 2),
+(2, '2024-04-16 10:05:00', '2024-04-17 08:05:00', ST_GeogFromText('POINT(-122.3328 47.6068)'), '{"quality":"high","camera":"iPhone 13"}', 2, '2024-04-15 14:35:00', 1, 2),
+(3, '2024-04-17 14:30:00', '2024-04-18 09:00:00', ST_GeogFromText('POINT(-122.3330 47.6070)'), '{"quality":"medium","camera":"iPhone 13"}', 3, '2024-04-16 16:00:00', 1, 2),
+(4, '2024-04-22 11:00:00', '2024-04-23 10:00:00', ST_GeogFromText('POINT(-122.3335 47.6075)'), '{"quality":"high","camera":"Samsung S21"}', 4, '2024-04-20 15:20:00', 2, 2),
+(7, '2024-05-11 09:15:00', '2024-05-12 08:30:00', ST_GeogFromText('POINT(-122.4198 37.7752)'), '{"quality":"high","camera":"Samsung S21"}', 5, '2024-05-10 13:45:00', 2, 2),
+(8, '2024-05-11 09:20:00', NULL, ST_GeogFromText('POINT(-122.4200 37.7755)'), '{"quality":"medium","camera":"Samsung S21"}', 6, '2024-05-10 13:50:00', 2, 2),
+(9, '2024-03-26 16:00:00', '2024-03-27 09:00:00', ST_GeogFromText('POINT(72.8780 19.0763)'), '{"quality":"high","camera":"OnePlus 9"}', 7, '2024-03-25 11:20:00', 3, 3),
+(10, '2024-03-27 10:30:00', '2024-03-28 08:15:00', ST_GeogFromText('POINT(72.8783 19.0766)'), '{"quality":"high","camera":"OnePlus 9"}', 8, '2024-03-25 11:25:00', 3, 3),
+(12, '2024-06-16 13:45:00', '2024-06-17 10:00:00', ST_GeogFromText('POINT(-3.7040 40.4170)'), '{"quality":"high","camera":"Google Pixel 6"}', 9, '2024-06-15 14:30:00', 4, 3),
+(20, '2024-06-21 15:20:00', NULL, ST_GeogFromText('POINT(-3.7046 40.4176)'), '{"quality":"excellent","camera":"Canon EOS R5"}', 10, '2024-06-20 16:00:00', 8, 5);
 
 ---------------------------------------------------------
--- U_DonorSendLog
+-- U_DonorSendLog - Log of photo notifications sent to donors
 ---------------------------------------------------------
 INSERT INTO stp.u_donorsendlog (treeidn, uploadts, sendts, sendstatus) VALUES
-(1, '2024-01-20 10:00:00', '2024-01-22 14:30:00', 'sent'),
-(1, '2024-07-20 09:30:00', '2024-07-23 10:00:00', 'sent'),
-(2, '2024-01-21 11:15:00', '2024-01-24 16:45:00', 'sent'),
-(3, '2024-01-22 14:30:00', '2024-01-25 09:15:00', 'sent'),
-(4, '2024-02-10 08:45:00', '2024-02-12 10:30:00', 'sent'),
-(4, '2024-05-10 10:00:00', '2024-05-13 14:00:00', 'sent'),
-(7, '2024-03-15 12:00:00', '2024-03-18 11:00:00', 'sent'),
-(9, '2024-03-25 09:15:00', '2024-03-28 15:30:00', 'sent'),
-(11, '2024-04-05 15:30:00', '2024-04-08 10:45:00', 'sent'),
-(13, '2024-05-20 11:45:00', '2024-05-23 09:30:00', 'sent'),
--- Some pending sends
-(14, '2024-12-20 10:00:00', NULL, 'pending'),
-(15, '2024-12-21 11:30:00', NULL, 'pending'),
-(16, '2024-12-22 09:15:00', NULL, 'failed');
+(1, '2024-04-16 10:00:00', '2024-04-17 08:00:00', 'sent'),
+(2, '2024-04-16 10:05:00', '2024-04-17 08:05:00', 'sent'),
+(3, '2024-04-17 14:30:00', '2024-04-18 09:00:00', 'sent'),
+(4, '2024-04-22 11:00:00', '2024-04-23 10:00:00', 'sent'),
+(7, '2024-05-11 09:15:00', '2024-05-12 08:30:00', 'sent'),
+(8, '2024-05-11 09:20:00', NULL, 'pending'),
+(9, '2024-03-26 16:00:00', '2024-03-27 09:00:00', 'sent'),
+(10, '2024-03-27 10:30:00', '2024-03-28 08:15:00', 'sent'),
+(12, '2024-06-16 13:45:00', '2024-06-17 10:00:00', 'sent'),
+(20, '2024-06-21 15:20:00', NULL, 'pending');
 
+-- Sample queries to verify the data:
+-- SELECT * FROM stp.u_user;
+-- SELECT * FROM stp.u_donor;
+-- SELECT * FROM stp.u_project;
+-- SELECT * FROM stp.u_pledge;
+-- SELECT * FROM stp.u_tree;
+-- SELECT * FROM stp.u_treephoto;
+
+-- Summary query to see totals:
+-- SELECT 
+--     (SELECT COUNT(*) FROM stp.u_user) as total_users,
+--     (SELECT COUNT(*) FROM stp.u_donor) as total_donors,
+--     (SELECT COUNT(*) FROM stp.u_project) as total_projects,
+--     (SELECT COUNT(*) FROM stp.u_pledge) as total_pledges,
+--     (SELECT COUNT(*) FROM stp.u_tree) as total_trees,
+--     (SELECT COUNT(*) FROM stp.u_treephoto) as total_photos;
 ---------------------------------------------------------
 -- Sample Queries to Verify PostGIS Geography Data
 ---------------------------------------------------------
