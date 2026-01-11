@@ -18,7 +18,7 @@ CREATE TABLE core.U_RunLogStep (
     Rc INT,
     Step VARCHAR(256)
 );
-*/
+
 create or replace view core.V_RL
 AS
 SELECT RunLogIdn,LogName,
@@ -158,3 +158,4 @@ EXCEPTION
         END IF;
 END;
 $BODY$;
+*/
