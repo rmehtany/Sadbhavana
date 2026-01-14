@@ -42,8 +42,7 @@ BEGIN
     FROM stp.U_Project
     WHERE (p_InputJson->>'project_pattern' IS NULL 
            OR ProjectId LIKE v_ProjectPattern 
-           OR ProjectName LIKE v_ProjectPattern)
-    ORDER BY ProjectIdn;
+           OR ProjectName LIKE v_ProjectPattern);
 
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
     CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'SELECT Projects');
@@ -74,7 +73,7 @@ BEGIN
         TreeCntPlanted  INT,
         Lat             FLOAT,
         Lng             FLOAT,
-        PropertyList    VARCHAR(256)
+        PropertyList    JSONB
     ) ON COMMIT DROP;
 
     -- Parse input JSON
@@ -88,7 +87,7 @@ BEGIN
         COALESCE((T->>'tree_cnt_planted')::INT, 0),
         (T->>'latitude')::FLOAT,
         (T->>'longitude')::FLOAT,
-        COALESCE(T->>'property_list', '{}')
+        COALESCE(T->'property_list', '{}'::jsonb)
     FROM jsonb_array_elements(p_InputJson) AS T;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
     CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'INSERT T_Project');
