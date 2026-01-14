@@ -1,3 +1,7 @@
+-- +goose Up
+-- +goose StatementBegin
+SELECT 'up SQL query';
+
 create extension if not exists postgis;
 create extension if not exists dblink;
 -------------------------------------------------------------------------------------------------------
@@ -156,3 +160,22 @@ CREATE TABLE stp.u_user (
     mobilenumber    varchar(64),
     ts              timestamptz
 );
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+SELECT 'down SQL query';
+drop extension if exists postgis;
+drop extension if exists dblink;
+drop schema if exists stp;
+drop table if exists stp.u_donor;
+drop table if exists stp.u_donorsendlog;
+drop table if exists stp.u_file;
+drop table if exists stp.u_pledge;
+drop table if exists stp.u_project;
+drop table if exists stp.u_provider;
+drop table if exists stp.u_tree;
+drop table if exists stp.u_treephoto;
+drop table if exists stp.u_treetype;
+drop table if exists stp.u_user;
+-- +goose StatementEnd

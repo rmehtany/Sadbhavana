@@ -1,24 +1,3 @@
-/*
--- 1. Create tables
-DROP TABLE IF EXISTS core.U_RunLog;
-CREATE TABLE core.U_RunLog (
-    RunLogIdn SERIAL PRIMARY KEY,
-    LogName VARCHAR(128),
-    StartTs TIMESTAMP,
-    EndTs TIMESTAMP,
-    InputJson JSONB NULL,
-    OutputJson JSONB
-);
-
-DROP TABLE IF EXISTS core.U_RunLogStep;
-CREATE TABLE core.U_RunLogStep (
-    Idn SERIAL PRIMARY KEY,
-    RunLogIdn INT,
-    Ts TIMESTAMP DEFAULT now(),
-    Rc INT,
-    Step VARCHAR(256)
-);
-
 create or replace view core.V_RL
 AS
 SELECT RunLogIdn,LogName,
@@ -158,4 +137,3 @@ EXCEPTION
         END IF;
 END;
 $BODY$;
-*/
