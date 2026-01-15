@@ -3,7 +3,7 @@
 -- GetTreePhotos
 /*
 CREATE OR REPLACE PROCEDURE STP.P_UploadTreePhoto(
-    IN      P_AnchorTs      TIMESTAMP,
+    IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
     IN      p_InputJson     JSONB,

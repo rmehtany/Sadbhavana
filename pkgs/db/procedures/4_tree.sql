@@ -7,7 +7,7 @@
 
 -- CreateTreeBulk - Create trees for pledges in a project
 CREATE OR REPLACE PROCEDURE STP.P_CreateTreeBulk(
-    IN      P_AnchorTs      TIMESTAMP,
+    IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
     IN      p_InputJson     JSONB,
@@ -113,7 +113,7 @@ $BODY$;
 
 -- GetTree - Search trees by various criteria
 CREATE OR REPLACE PROCEDURE STP.P_GetTree(
-    IN      P_AnchorTs      TIMESTAMP,
+    IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
     IN      p_InputJson     JSONB,
@@ -170,7 +170,7 @@ END;
 $BODY$;
 
 CREATE OR REPLACE PROCEDURE STP.P_SaveTree(
-    IN      P_AnchorTs      TIMESTAMP,
+    IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
     IN      p_InputJson     JSONB,
@@ -286,7 +286,7 @@ $BODY$;
 
 -- DeleteTree - Delete trees by PledgeIdns with validation
 CREATE OR REPLACE PROCEDURE STP.P_DeleteTree(
-    IN      P_AnchorTs      TIMESTAMP,
+    IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
     IN      p_InputJson     JSONB,

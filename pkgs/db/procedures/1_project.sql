@@ -6,7 +6,7 @@
 
 -- Rename to SearchProject: GetProject - Searches by pattern matching on project name or project id
 CREATE OR REPLACE PROCEDURE STP.P_GetProject(
-    IN      P_AnchorTs      TIMESTAMP,
+    IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
     IN      p_InputJson     JSONB,
@@ -35,7 +35,7 @@ BEGIN
                 'latitude', ST_Y(ProjectLocation::geometry)::FLOAT,
                 'longitude', ST_X(ProjectLocation::geometry)::FLOAT,
                 'property_list', PropertyList
-            )
+            ) ORDER BY ProjectId
         ), '[]'::jsonb
     )
     INTO p_OutputJson
@@ -45,13 +45,13 @@ BEGIN
            OR ProjectName LIKE v_ProjectPattern);
 
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'SELECT Projects');
+    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'query data');
 END;
 $BODY$;
 
 -- SaveProject - Insert/Update projects with validation
 CREATE OR REPLACE PROCEDURE STP.P_SaveProject(
-    IN      P_AnchorTs      TIMESTAMP,
+    IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
     IN      p_InputJson     JSONB,
@@ -147,18 +147,11 @@ BEGIN
 
     -- Insert new projects
     INSERT INTO stp.U_Project (ProjectId, ProjectName, StartDt, TreeCntPledged, TreeCntPlanted, ProjectLocation, PropertyList, UserIdn, Ts)
-    SELECT 
-        tp.ProjectId,
-        tp.ProjectName,
-        tp.StartDt,
-        tp.TreeCntPledged,
-        tp.TreeCntPlanted,
-        ST_SetSRID(ST_MakePoint(tp.Lng, tp.Lat), 4326)::geography,
-        tp.PropertyList,
-        P_UserIdn,
-        P_AnchorTs
-    FROM T_Project tp
-    WHERE tp.ProjectIdn IS NULL;
+    SELECT ProjectId,ProjectName,StartDt,TreeCntPledged,TreeCntPlanted,
+        ST_SetSRID(ST_MakePoint(Lng, Lat), 4326)::geography,
+        PropertyList,p_UserIdn,p_AnchorTs
+	FROM T_Project
+    WHERE ProjectIdn IS NULL;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
     CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'INSERT stp.U_Project');
 
@@ -166,27 +159,28 @@ BEGIN
     SELECT COALESCE(
         jsonb_agg(
             jsonb_build_object(
-                'project_idn', up.ProjectIdn,
-                'project_id', up.ProjectId,
-                'project_name', up.ProjectName,
-                'start_dt', up.StartDt,
-                'tree_cnt_pledged', up.TreeCntPledged,
-                'tree_cnt_planted', up.TreeCntPlanted,
-                'latitude', ST_Y(up.ProjectLocation::geometry)::FLOAT,
-                'longitude', ST_X(up.ProjectLocation::geometry)::FLOAT,
-                'property_list', up.PropertyList
-            )
+                'project_idn', ProjectIdn,
+                'project_id', ProjectId,
+                'project_name', ProjectName,
+                'start_dt', StartDt,
+                'tree_cnt_pledged', TreeCntPledged,
+                'tree_cnt_planted', TreeCntPlanted,
+                'latitude', ST_Y(ProjectLocation::geometry)::FLOAT,
+                'longitude', ST_X(ProjectLocation::geometry)::FLOAT,
+                'property_list', PropertyList
+            ) ORDER BY ProjectId
         ), '[]'::jsonb
     )
     INTO p_OutputJson
-    FROM stp.U_Project up
-    WHERE up.ProjectId IN (SELECT ProjectId FROM T_Project);
+    FROM stp.U_Project
+    WHERE ProjectId IN (SELECT ProjectId FROM T_Project);
+    CALL core.P_RunLogStep(p_RunLogIdn, null, 'build response json');
 END;
 $BODY$;
 
 -- DeleteProject - Delete projects with validation
 CREATE OR REPLACE PROCEDURE STP.P_DeleteProject(
-    IN      P_AnchorTs      TIMESTAMP,
+    IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
     IN      p_InputJson     JSONB,
@@ -249,3 +243,48 @@ END;
 $BODY$;
 
 -- End of 1_project.sql
+/*
+--truncate table U_RunLog RESTART IDENTITY;
+--truncate table U_RunLogStep RESTART IDENTITY;
+CALL core.P_DbApi (
+    '{
+		"schema_name": "stp",	
+		"handler_name":"p_getproject",
+		"request": {
+			  "project_pattern": null
+    	}
+	}'::jsonb,
+    NULL
+    );
+
+delete from stp.U_Project where ProjectId in ('PROJ001','PROJ002');
+-- Insert new projects (ProjectIdn is null or not provided)
+CALL core.P_DbApi(
+    '{
+		"schema_name": "stp",	
+		"handler_name":"p_saveproject",
+        "request": [
+            {
+                "project_id": "PROJ001",
+                "project_name": "Forest Restoration Alpha",
+                "tree_cnt_pledged": 1000,
+                "tree_cnt_planted": 500,
+                "latitude": 40.7128,
+                "longitude": -74.0060
+            },
+            {
+                "project_id": "PROJ002",
+                "project_name": "Coastal Mangrove Initiative",
+                "tree_cnt_pledged": 2000,
+                "tree_cnt_planted": 750,
+                "latitude": 25.7617,
+                "longitude": -80.1918
+            }
+        ]
+    }'::jsonb,
+    NULL
+);
+select * from Stp.U_Project;
+select * from core.V_RL ORDER BY RunLogIdn DESC LIMIT 1;
+select * from core.V_RLS WHERE RunLogIdn=(select MAX(RunLogIdn) from core.U_RunLog) order by Idn;
+*/

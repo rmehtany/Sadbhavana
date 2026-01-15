@@ -89,6 +89,37 @@ EXCEPTION
 END;
 $$;
 
+-- 6. Create F_RunLogEnd function to mark completion
+CREATE OR REPLACE FUNCTION core.F_BuildMeterJson(
+    IN p_RunLogIdn INT
+)
+RETURNS JSONB
+LANGUAGE plpgsql AS
+$$
+DECLARE
+    v_MeterJson JSONB;
+BEGIN
+    -- Update the run log with end time and output (autonomous transaction)
+    SELECT jsonb_agg(
+		jsonb_build_object(
+			'step', step,
+			'rc', rc,	
+			'ms', ms
+			) ORDER BY Idn ASC 
+		)
+	INTO v_MeterJson
+	FROM
+		(SELECT step,rc,ts,
+        	round(extract(EPOCH FROM (ts - LAG(ts) OVER (ORDER BY Idn))) * 1000) AS ms,
+        	Idn
+		FROM core.U_RunLogStep
+		WHERE RunLogIdn=p_RunLogIdn
+		) AS T;
+
+	RETURN v_MeterJson;
+END;
+$$;
+
 CREATE OR REPLACE PROCEDURE core.P_DbApi(
     IN 		p_InputJson 	JSONB,
     INOUT 	p_OutputJson	JSONB DEFAULT NULL
@@ -96,7 +127,7 @@ CREATE OR REPLACE PROCEDURE core.P_DbApi(
 LANGUAGE plpgsql
 AS $BODY$
 DECLARE
-    v_AnchorTs          TIMESTAMP=now();
+    v_AnchorTs          TIMESTAMPTZ=clock_timestamp();
 	v_HandlerName		VARCHAR(64);
 	v_ProcedureCall		VARCHAR(256);
     v_Rc 				INTEGER;
@@ -108,7 +139,7 @@ DECLARE
 BEGIN
 	v_SchemaName = p_InputJson->>'schema_name';
     v_HandlerName = p_InputJson->>'handler_name';
-    v_UserIdn := (p_InputJson->>'user_idn')::INT;
+    v_UserIdn := coalesce((p_InputJson->>'user_idn')::INT,0);
 
     -- Start logging and get RunLogIdn
     v_RunLogIdn := core.F_RunLogStart(v_HandlerName, p_InputJson);
@@ -120,7 +151,16 @@ BEGIN
     EXECUTE v_ProcedureCall INTO v_ResultJson USING v_AnchorTs,v_UserIdn,v_RunLogIdn,v_RequestJson;
     CALL core.P_RunLogStep(v_RunLogIdn, NULL, 'Worker '||v_HandlerName||' executed successfully');
 
-    SELECT jsonb_build_object('response',v_ResultJson,'meter','[{"ts":"12:03","action": "ran procedure"}]'::jsonb)
+    SELECT jsonb_build_object(
+			'status', 'success',
+			'schema_name', v_SchemaName,	
+			'handler_name', v_HandlerName,
+			'user_idn', v_UserIdn,
+			'start_ts', v_AnchorTs,
+			'duration_ms', round(extract(epoch FROM (clock_timestamp() - v_AnchorTs)) * 1000),
+			'response', v_ResultJson,
+			'meter', core.F_BuildMeterJson(v_RunLogIdn)
+		)
     INTO p_OutputJson;
     CALL core.P_RunLogStep(v_RunLogIdn, NULL, 'Built response JSON');
 
@@ -131,9 +171,95 @@ EXCEPTION
     WHEN others THEN
         IF v_RunLogIdn IS NOT NULL THEN
 	        CALL core.P_RunLogStep(v_RunLogIdn, NULL, 'ERROR: ' || SQLERRM);
-            PERFORM core.F_RunLogEnd(v_RunLogIdn,jsonb_build_object('status','failure','error',SQLERRM),FALSE);
+		    SELECT jsonb_build_object(
+					'status', 'failure',
+					'error_msg', SQLERRM,
+					'schema_name', v_SchemaName,	
+					'handler_name', v_HandlerName,
+					'user_idn', v_UserIdn,
+					'start_ts', v_AnchorTs,
+					'duration_ms', round(extract(epoch FROM (clock_timestamp() - v_AnchorTs)) * 1000),
+					'response', null,
+					'meter', core.F_BuildMeterJson(v_RunLogIdn)
+				)
+		    INTO p_OutputJson;
+
+            PERFORM core.F_RunLogEnd(v_RunLogIdn,p_OutputJson,FALSE);
 		ELSE 
 			RAISE;
         END IF;
 END;
 $BODY$;
+CREATE OR REPLACE PROCEDURE core.P_SampleDbApi(
+    IN      p_AnchorTs      TIMESTAMPTZ,
+    IN      p_UserIdn       INT,
+    IN      p_RunLogIdn     INT,
+    IN      p_InputJson     JSONB,
+    INOUT   p_OutputJson    JSONB
+)
+LANGUAGE plpgsql
+AS $BODY$
+DECLARE
+    v_Rc INTEGER;
+    v_TestParam VARCHAR(128);
+BEGIN
+    -- Extract and prepare search pattern
+    v_TestParam := '%' || COALESCE(p_InputJson->>'test_param', '') || '%';
+    RAISE NOTICE 'TestParam: %', v_TestParam;
+
+    -- Build result JSON
+    SELECT COALESCE(
+        jsonb_agg(
+            jsonb_build_object(
+                'id', Id,
+                'name', Name
+            ) ORDER BY Id
+        ), '[]'::jsonb
+    )
+    INTO p_OutputJson
+    FROM (VALUES (1, 'one'),(2, 'two'),(3, 'three')) AS t (Id, Name);
+
+    GET DIAGNOSTICS v_Rc = ROW_COUNT;
+    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'Prepare Result JSON');
+END;
+$BODY$;
+
+/*
+-- Example usage:
+
+truncate table core.U_RunLog RESTART IDENTITY;
+truncate table core.U_RunLogStep RESTART IDENTITY;
+
+CALL core.p_dbapi (
+	'{
+		"schema_name": "core",	
+		"handler_name":"p_sampledbapi",
+		"request": {
+			  "test_param": "Hello"
+		}
+	}'::jsonb,
+	null
+	);
+
+DO $RUN$
+DECLARE
+    v_output JSONB;
+BEGIN
+    CALL core.p_dbapi (
+    '{
+		"schema_name": "core",	
+		"handler_name":"p_sampledbapi",
+		"request": {
+			  "test_param": "Hello"
+    	}
+	}'::jsonb,
+    v_output
+    );
+
+    RAISE NOTICE 'Output: %', v_output;
+END 
+$RUN$;
+
+select * from core.V_RL ORDER BY RunLogIdn DESC LIMIT 1;
+select * from core.V_RLS WHERE RunLogIdn=(select MAX(RunLogIdn) from core.U_RunLog) order by Idn;
+*/

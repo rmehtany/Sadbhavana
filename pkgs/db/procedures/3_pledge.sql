@@ -5,7 +5,7 @@
 
 -- GetPledge - Search pledges by DonorIdn or ProjectIdn
 CREATE OR REPLACE PROCEDURE STP.P_GetPledge(
-    IN      P_AnchorTs      TIMESTAMP,
+    IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
     IN      p_InputJson     JSONB,
@@ -57,7 +57,7 @@ $BODY$;
 
 -- SavePledge - Insert/Update pledges with validation
 CREATE OR REPLACE PROCEDURE STP.P_SavePledge(
-    IN      P_AnchorTs      TIMESTAMP,
+    IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
     IN      p_InputJson     JSONB,
@@ -186,7 +186,7 @@ $BODY$;
 
 -- DeletePledge - Delete pledges with validation
 CREATE OR REPLACE PROCEDURE STP.P_DeletePledge(
-    IN      P_AnchorTs      TIMESTAMP,
+    IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
     IN      p_InputJson     JSONB,

@@ -7,7 +7,7 @@
 
 -- GetDonor - Search donors by pattern
 CREATE OR REPLACE PROCEDURE STP.P_GetDonor(
-    IN      P_AnchorTs      TIMESTAMP,
+    IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
     IN      p_InputJson     JSONB,
@@ -53,7 +53,7 @@ $BODY$;
 
 -- SaveDonor - Insert/Update donors with validation
 CREATE OR REPLACE PROCEDURE STP.P_SaveDonor(
-    IN      P_AnchorTs      TIMESTAMP,
+    IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
     IN      p_InputJson     JSONB,
@@ -185,7 +185,7 @@ $BODY$;
 
 -- DeleteDonor - Delete donors with validation
 CREATE OR REPLACE PROCEDURE STP.P_DeleteDonor(
-    IN      P_AnchorTs      TIMESTAMP,
+    IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
     IN      p_InputJson     JSONB,
