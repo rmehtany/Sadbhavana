@@ -165,17 +165,17 @@ CREATE TABLE stp.u_user (
 -- +goose Down
 -- +goose StatementBegin
 SELECT 'down SQL query';
-drop extension if exists postgis;
-drop extension if exists dblink;
-drop schema if exists stp;
-drop table if exists stp.u_donor;
-drop table if exists stp.u_donorsendlog;
-drop table if exists stp.u_file;
-drop table if exists stp.u_pledge;
-drop table if exists stp.u_project;
-drop table if exists stp.u_provider;
-drop table if exists stp.u_tree;
-drop table if exists stp.u_treephoto;
-drop table if exists stp.u_treetype;
 drop table if exists stp.u_user;
+drop table if exists stp.u_treetype;
+drop table if exists stp.u_treephoto;
+drop table if exists stp.u_tree;
+drop table if exists stp.u_provider;
+drop table if exists stp.u_project;
+drop table if exists stp.u_pledge;
+drop table if exists stp.u_file;
+drop table if exists stp.u_donorsendlog;
+drop table if exists stp.u_donor;
+drop schema if exists stp;
+drop extension if exists dblink;
+drop extension if exists postgis;
 -- +goose StatementEnd

@@ -22,6 +22,6 @@ CREATE TABLE core.U_RunLogStep (
 -- +goose Down
 -- +goose StatementBegin
 SELECT 'down SQL query';
-DROP TABLE IF EXISTS core.U_RunLog;
 DROP TABLE IF EXISTS core.U_RunLogStep;
+DROP TABLE IF EXISTS core.U_RunLog;
 -- +goose StatementEnd
