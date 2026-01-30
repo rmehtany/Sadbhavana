@@ -1,10 +1,10 @@
 -- 3_pledge.sql
--- SearchPledge
--- SavePledge
--- DeletePledge
+    -- search_pledge
+    -- save_pledge
+    -- delete_pledge
 
 -- GetPledge - Search pledges by DonorIdn or ProjectIdn
-CREATE OR REPLACE PROCEDURE STP.P_GetPledge(
+CREATE OR REPLACE PROCEDURE stp.p_get_pledge(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -19,8 +19,8 @@ DECLARE
     v_ProjectIdn INT;
 BEGIN
     -- Extract search criteria
-    v_DonorIdn := NULLIF(p_InputJson->>'donor_idn', '')::INT;
     v_ProjectIdn := NULLIF(p_InputJson->>'project_idn', '')::INT;
+    v_DonorIdn := NULLIF(p_InputJson->>'donor_idn', '')::INT;
     
     -- Build result JSON
     SELECT COALESCE(
@@ -37,7 +37,7 @@ BEGIN
                 'tree_cnt_planted', p.TreeCntPlanted,
                 'pledge_credit', p.PledgeCredit,
                 'property_list', p.PropertyList
-            )
+            ) ORDER BY p.PledgeIdn
         ), '[]'::jsonb
     )
     INTO p_OutputJson
@@ -47,16 +47,15 @@ BEGIN
         JOIN stp.U_Donor d 
             ON p.DonorIdn = d.DonorIdn
     WHERE (v_DonorIdn IS NULL OR p.DonorIdn = v_DonorIdn)
-      AND (v_ProjectIdn IS NULL OR p.ProjectIdn = v_ProjectIdn)
-    ORDER BY p.PledgeIdn;
+    AND (v_ProjectIdn IS NULL OR p.ProjectIdn = v_ProjectIdn);
 
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'SELECT Pledges');
+    CALL core.p_step(p_RunLogIdn, v_Rc, 'SELECT Pledges');
 END;
 $BODY$;
 
 -- SavePledge - Insert/Update pledges with validation
-CREATE OR REPLACE PROCEDURE STP.P_SavePledge(
+CREATE OR REPLACE PROCEDURE stp.p_save_pledge(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -79,7 +78,7 @@ BEGIN
         TreeCntPledged  INT,
         TreeCntPlanted  INT,
         PledgeCredit    JSONB,
-        PropertyList    VARCHAR(256)
+        PropertyList    JSONB
     ) ON COMMIT DROP;
 
     -- Parse input JSON
@@ -92,10 +91,10 @@ BEGIN
         COALESCE((T->>'tree_cnt_pledged')::INT, 0),
         COALESCE((T->>'tree_cnt_planted')::INT, 0),
         COALESCE(T->'pledge_credit', '{}'::jsonb),
-        COALESCE(T->>'property_list', '{}')
+        COALESCE(T->'property_list', '{}'::jsonb)
     FROM jsonb_array_elements(p_InputJson) AS T;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'INSERT T_Pledge');
+    CALL core.p_step(p_RunLogIdn, v_Rc, 'INSERT T_Pledge');
 
     -- Validate required fields
     IF EXISTS (SELECT 1 FROM T_Pledge WHERE ProjectIdn IS NULL OR DonorIdn IS NULL) THEN
@@ -143,9 +142,9 @@ BEGIN
         UserIdn = P_UserIdn
     FROM T_Pledge tp
     WHERE up.PledgeIdn = tp.PledgeIdn
-      AND tp.PledgeIdn IS NOT NULL;
+    AND tp.PledgeIdn IS NOT NULL;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'UPDATE stp.U_Pledge');
+    CALL core.p_step(p_RunLogIdn, v_Rc, 'UPDATE stp.U_Pledge');
 
     -- Insert new pledges
     INSERT INTO stp.U_Pledge (ProjectIdn, DonorIdn, PledgeTs, TreeCntPledged, TreeCntPlanted, PledgeCredit, PropertyList, UserIdn)
@@ -161,7 +160,7 @@ BEGIN
     FROM T_Pledge tp
     WHERE tp.PledgeIdn IS NULL;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'INSERT stp.U_Pledge');
+    CALL core.p_step(p_RunLogIdn, v_Rc, 'INSERT stp.U_Pledge');
 
     -- Return saved pledges
     SELECT COALESCE(
@@ -185,7 +184,7 @@ END;
 $BODY$;
 
 -- DeletePledge - Delete pledges with validation
-CREATE OR REPLACE PROCEDURE STP.P_DeletePledge(
+CREATE OR REPLACE PROCEDURE stp.p_delete_pledge(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -211,7 +210,7 @@ BEGIN
     FROM jsonb_array_elements(p_InputJson) AS T
     WHERE T->>'pledge_idn' IS NOT NULL;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'INSERT T_PledgeDelete');
+    CALL core.p_step(p_RunLogIdn, v_Rc, 'INSERT T_PledgeDelete');
 
     IF v_Rc = 0 THEN
         RAISE EXCEPTION 'No valid pledge_idn values provided for deletion';
@@ -227,7 +226,7 @@ BEGIN
     USING T_PledgeDelete tpd
     WHERE up.PledgeIdn = tpd.PledgeIdn;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'DELETE stp.U_Pledge');
+    CALL core.p_step(p_RunLogIdn, v_Rc, 'DELETE stp.U_Pledge');
 
     -- Return result
     p_OutputJson := jsonb_build_object(

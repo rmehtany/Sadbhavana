@@ -1,12 +1,12 @@
 -- 2_donor.sql
--- GetDonor
--- SearchDonor
--- SaveDonor
--- DeleteDonor
--- MergeDonor
+-- get_donor
+-- search_donor
+-- save_donor
+-- delete_donor
+-- merge_donor
 
 -- GetDonor - Search donors by pattern
-CREATE OR REPLACE PROCEDURE STP.P_GetDonor(
+CREATE OR REPLACE PROCEDURE stp.p_get_donor(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -33,7 +33,6 @@ BEGIN
                 'city', City,
                 'email_addr', EmailAddr,
                 'country', Country,
-                'state', State,
                 'birth_dt', BirthDt,
                 'property_list', PropertyList
             )
@@ -47,12 +46,12 @@ BEGIN
            OR EmailAddr LIKE v_DonorPattern)
     ORDER BY DonorName, MobileNumber;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'SELECT Donors');
+    CALL core.p_step(p_RunLogIdn, v_Rc, 'SELECT Donors');
 END;
 $BODY$;
 
 -- SaveDonor - Insert/Update donors with validation
-CREATE OR REPLACE PROCEDURE STP.P_SaveDonor(
+CREATE OR REPLACE PROCEDURE stp.p_save_donor(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -73,13 +72,12 @@ BEGIN
         City            VARCHAR(64),
         EmailAddr       VARCHAR(64),
         Country         VARCHAR(64),
-        State           VARCHAR(64),
         BirthDt         DATE,
-        PropertyList    VARCHAR(256)
+        PropertyList    JSONB
     ) ON COMMIT DROP;
 
     -- Parse input JSON
-    INSERT INTO T_Donor (DonorIdn, DonorName, MobileNumber, City, EmailAddr, Country, State, BirthDt, PropertyList)
+    INSERT INTO T_Donor (DonorIdn, DonorName, MobileNumber, City, EmailAddr, Country, BirthDt, PropertyList)
     SELECT 
         NULLIF(T->>'donor_idn', '')::INT,
         T->>'donor_name',
@@ -87,16 +85,15 @@ BEGIN
         T->>'city',
         T->>'email_addr',
         T->>'country',
-        T->>'state',
         NULLIF(T->>'birth_dt', '')::DATE,
-        COALESCE(T->>'property_list', '{}')
+        COALESCE(T->'property_list', '{}'::jsonb)
     FROM jsonb_array_elements(p_InputJson) AS T;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'INSERT T_Donor');
+    CALL core.p_step(p_RunLogIdn, v_Rc, 'INSERT T_Donor');
 
     -- Validate required fields
-    IF EXISTS (SELECT 1 FROM T_Donor WHERE DonorName IS NULL OR MobileNumber IS NULL OR City IS NULL OR Country IS NULL OR State IS NULL) THEN
-        RAISE EXCEPTION 'Missing required fields: donor_name, mobile_number, city, country, state are mandatory';
+    IF EXISTS (SELECT 1 FROM T_Donor WHERE DonorName IS NULL OR MobileNumber IS NULL OR City IS NULL OR Country IS NULL) THEN
+        RAISE EXCEPTION 'Missing required fields: donor_name, mobile_number, city, country are mandatory';
     END IF;
 
     -- Check for duplicate MobileNumber within input batch
@@ -125,6 +122,14 @@ BEGIN
         RAISE EXCEPTION 'Duplicate MobileNumber(s) already exist: %. MobileNumber must be unique.', v_DuplicateMobileNumbers;
     END IF;
 
+    IF EXISTS
+        (SELECT 1 FROM T_Donor 
+        WHERE EmailAddr IS NOT NULL 
+        AND NOT core.F_ValidateEmail(EmailAddr))
+    THEN
+        RAISE EXCEPTION 'Invalid email address format detected';
+    END IF;
+
     -- Update existing donors
     UPDATE stp.U_Donor ud
     SET DonorName = td.DonorName,
@@ -132,7 +137,6 @@ BEGIN
         City = td.City,
         EmailAddr = td.EmailAddr,
         Country = td.Country,
-        State = td.State,
         BirthDt = td.BirthDt,
         PropertyList = td.PropertyList,
         UserIdn = P_UserIdn,
@@ -141,17 +145,16 @@ BEGIN
     WHERE ud.DonorIdn = td.DonorIdn
       AND td.DonorIdn IS NOT NULL;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'UPDATE stp.U_Donor');
+    CALL core.p_step(p_RunLogIdn, v_Rc, 'UPDATE stp.U_Donor');
 
     -- Insert new donors
-    INSERT INTO stp.U_Donor (DonorName, MobileNumber, City, EmailAddr, Country, State, BirthDt, PropertyList, UserIdn, Ts)
+    INSERT INTO stp.U_Donor (DonorName, MobileNumber, City, EmailAddr, Country, BirthDt, PropertyList, UserIdn, Ts)
     SELECT 
         td.DonorName,
         td.MobileNumber,
         td.City,
         td.EmailAddr,
         td.Country,
-        td.State,
         td.BirthDt,
         td.PropertyList,
         P_UserIdn,
@@ -159,7 +162,7 @@ BEGIN
     FROM T_Donor td
     WHERE td.DonorIdn IS NULL;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'INSERT stp.U_Donor');
+    CALL core.p_step(p_RunLogIdn, v_Rc, 'INSERT stp.U_Donor');
 
     -- Return saved donors
     SELECT COALESCE(
@@ -171,7 +174,6 @@ BEGIN
                 'city', ud.City,
                 'email_addr', ud.EmailAddr,
                 'country', ud.Country,
-                'state', ud.State,
                 'birth_dt', ud.BirthDt,
                 'property_list', ud.PropertyList
             )
@@ -184,7 +186,7 @@ END;
 $BODY$;
 
 -- DeleteDonor - Delete donors with validation
-CREATE OR REPLACE PROCEDURE STP.P_DeleteDonor(
+CREATE OR REPLACE PROCEDURE stp.p_delete_donor(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -209,7 +211,7 @@ BEGIN
     FROM jsonb_array_elements(p_InputJson) AS T
     WHERE T->>'donor_idn' IS NOT NULL;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'INSERT T_DonorDelete');
+    CALL core.p_step(p_RunLogIdn, v_Rc, 'INSERT T_DonorDelete');
 
     IF v_Rc = 0 THEN
         RAISE EXCEPTION 'No valid donor_idn values provided for deletion';
@@ -236,7 +238,7 @@ BEGIN
     USING T_DonorDelete tdd
     WHERE ud.DonorIdn = tdd.DonorIdn;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'DELETE stp.U_Donor');
+    CALL core.p_step(p_RunLogIdn, v_Rc, 'DELETE stp.U_Donor');
 
     -- Return result
     p_OutputJson := jsonb_build_object(

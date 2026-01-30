@@ -1,12 +1,6 @@
-create extension if not exists postgis;
-create extension if not exists dblink;
--------------------------------------------------------------------------------------------------------
--------------------------------------------------------------------------------------------------------
--------------------------------------------------------------------------------------------------------
--- PostgreSQL version
-
--- Schema (if not already created)
-CREATE SCHEMA IF NOT EXISTS stp;
+-- +goose Up
+-- +goose StatementBegin
+SELECT 'up SQL query';
 
 ---------------------------------------------------------
 -- U_Donor
@@ -37,6 +31,9 @@ CREATE TABLE stp.u_donorsendlog (
     sendstatus   varchar(64)
 );
 
+CREATE UNIQUE INDEX xak1u_donorsendlog
+    ON stp.u_donorsendlog (treeidn, uploadts);
+
 ---------------------------------------------------------
 -- U_File
 ---------------------------------------------------------
@@ -48,8 +45,11 @@ CREATE TABLE stp.u_file (
     filepath     varchar(2048) NOT NULL,
     filename     varchar(256) NOT NULL,
     filetype     varchar(64) NOT NULL,
-    ts    timestamptz NOT NULL
+    ts          timestamptz NOT NULL
 );
+
+CREATE UNIQUE INDEX xak1u_file
+    ON stp.u_file (provideridn, filestoreid, filepath, filename);
 
 ---------------------------------------------------------
 -- U_Pledge
@@ -102,6 +102,9 @@ CREATE TABLE stp.u_provider (
     tokenconfig   jsonb NOT NULL
 );
 
+CREATE UNIQUE INDEX xak1u_provider
+    ON stp.u_provider (providername);
+
 ---------------------------------------------------------
 -- U_Tree
 ---------------------------------------------------------
@@ -111,8 +114,8 @@ CREATE TABLE stp.u_tree (
     treeid        varchar(64) NOT NULL,
     pledgeidn     integer NOT NULL,
     creditname    varchar(64),
-    treetypeidn   integer NOT NULL,
-    treelocation  geography(Point, 4326) NOT NULL,
+    treetypeidn   integer,
+    treelocation  geography(Point, 4326),
     propertylist  jsonb NOT NULL
 );
 
@@ -146,13 +149,26 @@ CREATE TABLE stp.u_treetype (
     propertylist   jsonb NOT NULL
 );
 
+CREATE UNIQUE INDEX xak1u_treetype
+    ON stp.u_treetype (treetypename);
+
 ---------------------------------------------------------
 -- U_User
 ---------------------------------------------------------
 drop table if exists stp.u_user;
-CREATE TABLE stp.u_user (
-    useridn         integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    username        varchar(128),
-    mobilenumber    varchar(64),
-    ts              timestamptz
-);
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+SELECT 'down SQL query';
+drop table if exists stp.u_user;
+drop table if exists stp.u_treetype;
+drop table if exists stp.u_treephoto;
+drop table if exists stp.u_tree;
+drop table if exists stp.u_provider;
+drop table if exists stp.u_project;
+drop table if exists stp.u_pledge;
+drop table if exists stp.u_file;
+drop table if exists stp.u_donorsendlog;
+drop table if exists stp.u_donor;
+-- +goose StatementEnd

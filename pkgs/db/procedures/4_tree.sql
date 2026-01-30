@@ -1,12 +1,12 @@
 -- 4_tree.sql
--- CreateTreeBulk
--- GetTree
--- SearchTree
--- SaveTree
--- DeleteTree
+-- create_tree_bulk
+-- get_tree
+-- search_tree
+-- save_tree
+-- delete_tree
 
 -- CreateTreeBulk - Create trees for pledges in a project
-CREATE OR REPLACE PROCEDURE STP.P_CreateTreeBulk(
+CREATE OR REPLACE PROCEDURE stp.p_create_tree_bulk(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -31,11 +31,11 @@ BEGIN
     IF v_ProjectIdn IS NULL THEN
         RAISE EXCEPTION 'project_idn is required';
     END IF;
-    CALL core.P_RunLogStep(p_RunLogIdn, NULL, 'ProjectIdn: ' || v_ProjectIdn);
+    CALL core.p_step(p_RunLogIdn, NULL, 'ProjectIdn: ' || v_ProjectIdn);
 
     -- Get CreateType
     v_CreateType := COALESCE(p_InputJson->>'create_type', 'Missing');
-    CALL core.P_RunLogStep(p_RunLogIdn, NULL, 'CreateType: ' || v_CreateType);
+    CALL core.p_step(p_RunLogIdn, NULL, 'CreateType: ' || v_CreateType);
 
     -- Validate project exists and get ProjectId
     SELECT ProjectId
@@ -46,7 +46,7 @@ BEGIN
     IF v_ProjectId IS NULL THEN
         RAISE EXCEPTION 'Project not found for ProjectIdn: %', v_ProjectIdn;
     END IF;
-    CALL core.P_RunLogStep(p_RunLogIdn, NULL, 'Found Project: ' || v_ProjectId);
+    CALL core.p_step(p_RunLogIdn, NULL, 'Found Project: ' || v_ProjectId);
 
     -- Handle Clean option
     IF v_CreateType = 'Clean' THEN
@@ -70,7 +70,7 @@ BEGIN
         WHERE t.PledgeIdn = p.PledgeIdn
           AND p.ProjectIdn = v_ProjectIdn;
         GET DIAGNOSTICS v_Rc = ROW_COUNT;
-        CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'DELETE stp.U_Tree (Clean mode)');
+        CALL core.p_step(p_RunLogIdn, v_Rc, 'DELETE stp.U_Tree (Clean mode)');
     END IF;
 
     -- Get the current max tree number for this project
@@ -80,26 +80,25 @@ BEGIN
         JOIN stp.U_Tree t 
             ON p.PledgeIdn = t.PledgeIdn
     WHERE p.ProjectIdn = v_ProjectIdn;
-    CALL core.P_RunLogStep(p_RunLogIdn, NULL, 'Max TreeNum: ' || v_MaxTreeNum);
+    CALL core.p_step(p_RunLogIdn, NULL, 'Max TreeNum: ' || v_MaxTreeNum);
 
     -- Create tree records for project pledges
-    INSERT INTO stp.U_Tree (TreeLocation, TreeTypeIdn, PledgeIdn, CreditName, TreeId, PropertyList)
-	SELECT NULL,NULL,p.PledgeIdn,pc.key,
-	    v_ProjectId || LPAD((v_MaxTreeNum + row_number() OVER (ORDER BY p.PledgeIdn, pc.key, gs.n))::TEXT, 6, '0') AS TreeId,
-		'{}'
+    INSERT INTO stp.U_Tree (TreeId, PledgeIdn, CreditName, TreeTypeIdn, TreeLocation, PropertyList)
+	SELECT 
+        v_ProjectId || LPAD((v_MaxTreeNum + row_number() OVER (ORDER BY p.PledgeIdn, pc.key, gs.n))::TEXT, 6, '0'),
+		p.PledgeIdn,pc.key,NULL,NULL,'{}'::JSONB
 	FROM 
 		(SELECT p.PledgeIdn,p.DonorIdn,p.TreeCntPledged,p.PledgeCredit
 	    FROM stp.U_Pledge p
 	        LEFT JOIN stp.U_Tree t
-		        ON p.PledgeIdn=t.PledgeIdn
-	    WHERE p.ProjectIdn=v_ProjectIdn
+		        ON p.PledgeIdn = t.PledgeIdn
+	    WHERE p.ProjectIdn = v_ProjectIdn
 	      AND t.TreeIdn IS NULL
 		) AS t
 	    CROSS JOIN LATERAL jsonb_each_text(t.PledgeCredit) AS pc
-	    CROSS JOIN LATERAL generate_series(1, (pc.value)::INT) AS gs(n)
-	WHERE p.ProjectIdn = v_ProjectIdn;
+	    CROSS JOIN LATERAL generate_series(1, (pc.value)::INT) AS gs(n);
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'INSERT stp.U_Tree');
+    CALL core.p_step(p_RunLogIdn, v_Rc, 'INSERT stp.U_Tree');
 
     -- Return summary
     p_OutputJson := jsonb_build_object(
@@ -112,7 +111,7 @@ END;
 $BODY$;
 
 -- GetTree - Search trees by various criteria
-CREATE OR REPLACE PROCEDURE STP.P_GetTree(
+CREATE OR REPLACE PROCEDURE stp.p_get_tree(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -134,7 +133,7 @@ BEGIN
     v_ProjectIdn := NULLIF(p_InputJson->>'project_idn', '')::INT;
     v_DonorIdn := NULLIF(p_InputJson->>'donor_idn', '')::INT;
     v_TreeIdPattern := '%' || p_InputJson->>'tree_id_pattern' || '%';
-    v_CreditNamePattern := '%' || p_InputJson->>'credit_name' || '%';
+    v_CreditNamePattern := '%' || p_InputJson->>'credit_name_pattern' || '%';
     
     RAISE NOTICE 'GetTree - PledgeIdn: %, ProjectIdn: %, DonorIdn: %, TreeIdPattern: %, CreditNamePattern: %', 
         v_PledgeIdn, v_ProjectIdn, v_DonorIdn, v_TreeIdPattern, v_CreditNamePattern;
@@ -146,7 +145,7 @@ BEGIN
                 'tree_idn', t.TreeIdn,
                 'latitude', ST_Y(t.TreeLocation::geometry)::FLOAT,
                 'longitude', ST_X(t.TreeLocation::geometry)::FLOAT
-            )
+            ) ORDER BY t.TreeIdn
         ), '[]'::jsonb
     )
     INTO p_OutputJson
@@ -161,15 +160,15 @@ BEGIN
 		    AND (v_DonorIdn IS NULL OR p.DonorIdn = v_DonorIdn)
     WHERE (v_PledgeIdn IS NULL OR t.PledgeIdn = v_PledgeIdn)
       AND (v_TreeIdPattern IS NULL OR t.TreeId LIKE v_TreeIdPattern)
---      AND (v_CreditNamePattern NULL OR t.CreditName LIKE v_CreditNamePattern)
-    ORDER BY t.TreeIdn;
+      AND (v_CreditNamePattern IS NULL OR t.CreditName LIKE v_CreditNamePattern)
+    ;
 
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'SELECT Trees');
+    CALL core.p_step(p_RunLogIdn, v_Rc, 'SELECT Trees');
 END;
 $BODY$;
 
-CREATE OR REPLACE PROCEDURE STP.P_SaveTree(
+CREATE OR REPLACE PROCEDURE stp.p_save_tree(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -200,7 +199,7 @@ BEGIN
         NULLIF(T->>'tree_type_idn', '')::INT
     FROM jsonb_array_elements(p_InputJson) AS T;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'INSERT T_Tree');
+    CALL core.p_step(p_RunLogIdn, v_Rc, 'INSERT T_Tree');
 
     -- Validate required field: TreeIdn
     IF EXISTS (SELECT 1 FROM T_Tree WHERE TreeIdn IS NULL) THEN
@@ -226,7 +225,8 @@ BEGIN
     SELECT string_agg(DISTINCT tt.TreeIdn::TEXT, ', ')
     INTO v_InvalidTreeIdns
     FROM T_Tree tt
-    LEFT JOIN stp.U_Tree ut ON tt.TreeIdn = ut.TreeIdn
+        LEFT JOIN stp.U_Tree ut 
+            ON tt.TreeIdn = ut.TreeIdn
     WHERE ut.TreeIdn IS NULL;
 
     IF v_InvalidTreeIdns IS NOT NULL THEN
@@ -240,8 +240,8 @@ BEGIN
     	LEFT JOIN stp.U_TreeType ttype 
 			ON tt.TreeTypeIdn = ttype.TreeTypeIdn
     WHERE tt.TreeTypeIdn IS NOT NULL 
-      AND tt.TreeTypeIdn != 0 
-      AND ttype.TreeTypeIdn IS NULL;
+    AND tt.TreeTypeIdn != 0 
+    AND ttype.TreeTypeIdn IS NULL;
 
     IF v_InvalidTreeTypes IS NOT NULL THEN
         RAISE EXCEPTION 'Invalid tree_type_idn(s): %. Tree types do not exist.', v_InvalidTreeTypes;
@@ -259,7 +259,7 @@ BEGIN
     FROM T_Tree tt
     WHERE ut.TreeIdn = tt.TreeIdn;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'UPDATE stp.U_Tree');
+    CALL core.p_step(p_RunLogIdn, v_Rc, 'UPDATE stp.U_Tree');
 
     -- Return updated trees
     SELECT COALESCE(
@@ -267,13 +267,11 @@ BEGIN
             jsonb_build_object(
                 'tree_idn', t.TreeIdn,
                 'tree_id', t.TreeId,
-                'tree_location', jsonb_build_object(
-                    'latitude', ST_Y(t.TreeLocation::geometry)::FLOAT,
-                    'longitude', ST_X(t.TreeLocation::geometry)::FLOAT
-                ),
-                'tree_type_idn', t.TreeTypeIdn,
                 'pledge_idn', t.PledgeIdn,
                 'credit_name', t.CreditName,
+                'tree_type_idn', t.TreeTypeIdn,
+                'latitude', ST_Y(t.TreeLocation::geometry)::FLOAT,
+                'longitude', ST_X(t.TreeLocation::geometry)::FLOAT,
                 'property_list', t.PropertyList
             )
         ), '[]'::jsonb
@@ -285,7 +283,7 @@ END;
 $BODY$;
 
 -- DeleteTree - Delete trees by PledgeIdns with validation
-CREATE OR REPLACE PROCEDURE STP.P_DeleteTree(
+CREATE OR REPLACE PROCEDURE stp.p_delete_tree(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -300,14 +298,9 @@ DECLARE
     v_TreesWithPhotos TEXT;
     v_ForceDelete BOOLEAN;
 BEGIN
-    -- Validate input is an array
-    IF jsonb_typeof(p_InputJson) != 'array' THEN
-        RAISE EXCEPTION 'Input must be a JSON array';
-    END IF;
-
     -- Get force_delete flag (default false)
-    v_ForceDelete := COALESCE((p_InputJson->0->>'force_delete')::BOOLEAN, false);
-    CALL core.P_RunLogStep(p_RunLogIdn, NULL, 'ForceDelete: ' || v_ForceDelete);
+    v_ForceDelete := COALESCE((p_InputJson->>'force_delete')::BOOLEAN, false);
+    CALL core.p_step(p_RunLogIdn, NULL, 'ForceDelete: ' || v_ForceDelete);
 
     -- Create temp table for delete requests
     CREATE TEMP TABLE T_TreeDelete (
@@ -316,11 +309,10 @@ BEGIN
 
     -- Parse input JSON - expecting array of pledge_idn values
     INSERT INTO T_TreeDelete (PledgeIdn)
-    SELECT DISTINCT (T->>'pledge_idn')::INT
-    FROM jsonb_array_elements(p_InputJson) AS T
-    WHERE T->>'pledge_idn' IS NOT NULL;
+    SELECT (T->>'pledge_idn')::INT
+    FROM jsonb_array_elements(p_InputJson) AS T;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'INSERT T_TreeDelete');
+    CALL core.p_step(p_RunLogIdn, v_Rc, 'INSERT T_TreeDelete');
 
     IF v_Rc = 0 THEN
         RAISE EXCEPTION 'No valid pledge_idn values provided for tree deletion';
@@ -348,7 +340,7 @@ BEGIN
 				ON ttd.PledgeIdn = t.PledgeIdn
         WHERE tp.TreeIdn = t.TreeIdn;
         GET DIAGNOSTICS v_Rc = ROW_COUNT;
-        CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'DELETE stp.U_TreePhoto (force)');
+        CALL core.p_step(p_RunLogIdn, v_Rc, 'DELETE stp.U_TreePhoto (force)');
 
         -- Also delete from donor send log
         DELETE FROM stp.U_DonorSendLog dsl
@@ -357,21 +349,22 @@ BEGIN
 				ON ttd.PledgeIdn = t.PledgeIdn
         WHERE dsl.TreeIdn = t.TreeIdn;
         GET DIAGNOSTICS v_Rc = ROW_COUNT;
-        CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'DELETE stp.U_DonorSendLog (force)');
+        CALL core.p_step(p_RunLogIdn, v_Rc, 'DELETE stp.U_DonorSendLog (force)');
     END IF;
 
     -- Capture TreeIdns being deleted
-    SELECT string_agg(DISTINCT t.TreeIdn::TEXT, ',')
+    SELECT string_agg(t.TreeIdn::TEXT, ',')
     INTO v_DeletedTreeIdns
     FROM T_TreeDelete ttd
-    JOIN stp.U_Tree t ON ttd.PledgeIdn = t.PledgeIdn;
+        JOIN stp.U_Tree t 
+            ON ttd.PledgeIdn = t.PledgeIdn;
 
     -- Delete trees for the specified pledges
     DELETE FROM stp.U_Tree t
     USING T_TreeDelete ttd
     WHERE t.PledgeIdn = ttd.PledgeIdn;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_RunLogStep(p_RunLogIdn, v_Rc, 'DELETE stp.U_Tree');
+    CALL core.p_step(p_RunLogIdn, v_Rc, 'DELETE stp.U_Tree');
 
     -- Return result
     p_OutputJson := jsonb_build_object(
