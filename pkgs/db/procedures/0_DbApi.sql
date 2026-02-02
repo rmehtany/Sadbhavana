@@ -1,24 +1,24 @@
 -- core dbapi procedures and views
--- core.v_rl - view for run log summary
--- core.v_rls - view for run log steps
--- core.p_register_db_api - procedure to register a dbapi
--- core.p_unregister_db_api - procedure to unregister a dbapi
--- core.f_validate_email - function to validate email format
--- core.f_validate_phone - function to validate phone number format
--- core.f_run_log_start - function to start a run log
--- core.p_step - procedure to log a step in the run log
--- core.f_run_log_end - function to end a run log
--- core.f_build_meter_json - function to build meter json from run log steps
--- core.p_db_api - main dbapi procedure to route requests
--- core.p_sample_db_api - sample dbapi procedure
--- core.f_get_config - function to get configuration value
--- core.p_set_config - procedure to set configuration value 
--- core.f_get_control - function to get control value
--- core.p_set_control - procedure to set control value
+-- core.V_RL - view for run log summary
+-- core.V_RLS - view for run log steps
+-- core.P_RegisterDbApi - procedure to register a dbapi
+-- core.P_UnregisterDbApi - procedure to unregister a dbapi
+-- core.F_ValidateEmail - function to validate email format
+-- core.F_ValidatePhone - function to validate phone number format
+-- core.F_RunLogStart - function to start a run log
+-- core.P_Step - procedure to log a step in the run log
+-- core.F_RunLogEnd - function to end a run log
+-- core.F_BuildMeterJson - function to build meter json from run log steps
+-- core.P_DbApi - main dbapi procedure to route requests
+-- core.P_SampleDbApi - sample dbapi procedure
+-- core.F_GetConfig - function to get configuration value
+-- core.P_SetConfig - procedure to set configuration value 
+-- core.F_GetControl - function to get control value
+-- core.P_SetControl - procedure to set control value
 
--- 1. create v_rl view for summary of runs
-drop view if exists core.v_rl;
-create or replace view core.v_rl
+-- 1. create V_RL view for summary of runs
+drop view if exists core.V_RL;
+create or replace view core.V_RL
 as
 select runlogidn,logname,
 	to_char(startts, 'YYYY-MM-DD HH24:MI:SS') as started,
@@ -27,9 +27,9 @@ select runlogidn,logname,
     outputjson
 from core.u_runlog;
 
--- 2. create v_rls view for detailed steps
-drop view if exists core.v_rls;
-create or replace view core.v_rls
+-- 2. create V_RLS view for detailed steps
+drop view if exists core.V_RLS;
+create or replace view core.V_RLS
 as
 select rl.runlogidn,rl.logname,rls.idn,rls.step,rls.rc,
    	round(extract(epoch from (rls.ts - lag(rls.ts) over (partition by rl.runlogidn order by rls.idn))) * 1000) as ms,
@@ -39,7 +39,7 @@ from core.u_runlog as rl
 	join core.u_runlogstep as rls
 		on rl.runlogidn = rls.runlogidn;
 
-create or replace function core.f_validate_email(p_email varchar)
+create or replace function core.F_ValidateEmail(p_email varchar)
 returns boolean
 language plpgsql
 as $$
@@ -48,7 +48,7 @@ begin
 end;
 $$;
 
-create or replace function core.f_validate_phone(p_phone varchar)
+create or replace function core.F_ValidatePhone(p_phone varchar)
 returns boolean
 language plpgsql
 as $$
@@ -58,8 +58,8 @@ begin
 end;
 $$;
 
--- 3. create f_run_log_start function to initiate logging
-create or replace function core.f_run_log_start(
+-- 3. create F_RunLogStart function to initiate logging
+create or replace function core.F_RunLogStart(
     in p_logname varchar(128),
     in p_useridn int, 
     in p_inputjson jsonb
@@ -85,13 +85,13 @@ begin
     
 exception
     when others then
-        raise notice 'f_run_log_start failed: %', sqlerrm;
+        raise notice 'F_RunLogStart failed: %', sqlerrm;
         return null;
 end;
 $$;
 
 -- 4. create p_step procedure
-create or replace procedure core.p_step(
+create or replace procedure core.P_Step(
     in p_runlogidn int,
     in p_rc int, 
     in p_step varchar(256)
@@ -106,12 +106,12 @@ begin
     );
 exception
     when others then
-        raise notice 'p_step failed: %', sqlerrm;
+        raise notice 'core.P_Step failed: %', sqlerrm;
 end;
 $$;
 
--- 5. create f_run_log_end function to mark completion
-create or replace function core.f_run_log_end(
+-- 5. create F_RunLogEnd function to mark completion
+create or replace function core.F_RunLogEnd(
     in p_runlogidn int,
     in p_outputjson jsonb,
     in p_issuccess boolean default true
@@ -131,12 +131,12 @@ begin
     );
 exception
     when others then
-        raise notice 'f_run_log_end failed: %', sqlerrm;
+        raise notice 'F_RunLogEnd failed: %', sqlerrm;
 end;
 $$;
 
--- 6. create f_build_meter_json function to build meter json
-create or replace function core.f_build_meter_json(
+-- 6. create F_BuildMeterJson function to build meter json
+create or replace function core.F_BuildMeterJson(
     in p_runlogidn int
 )
 returns jsonb
@@ -166,8 +166,8 @@ begin
 end;
 $$;
 
--- 7. create p_db_api procedure
-create or replace procedure core.p_db_api(
+-- 7. create P_DbApi procedure
+create or replace procedure core.P_DbApi(
     in 		p_inputjson 	jsonb,
     inout 	p_outputjson	jsonb default null
 )
@@ -190,7 +190,7 @@ BEGIN
         RAISE EXCEPTION 'Missing parameter db_api_name';
     END IF;
 
-    SELECT SchemaName, HandlerName
+    SELECT lower(SchemaName), lower(HandlerName)
     INTO v_SchemaName, v_HandlerName
     FROM core.U_DbApi
     WHERE DbApiName = v_DbApiName;
@@ -201,14 +201,18 @@ BEGIN
     v_UserIdn := coalesce((p_InputJson->>'user_idn')::INT,0);
 
     -- Start logging and get RunLogIdn
-    v_RunLogIdn := core.F_run_log_start(v_HandlerName, v_UserIdn, p_InputJson);
+    v_RunLogIdn := core.F_RunLogStart(v_HandlerName, v_UserIdn, p_InputJson);
 
     v_RequestJson = p_InputJson->'request';
-    CALL core.p_step(v_RunLogIdn, NULL, 'Extract request JSON');
+    CALL core.P_Step(v_RunLogIdn, NULL, 'Extract request JSON');
 
-	v_ProcedureCall = format('CALL %I.%I($1,$2,$3,$4,$5)',v_SchemaName,v_HandlerName);
-    EXECUTE v_ProcedureCall USING v_AnchorTs,v_UserIdn,v_RunLogIdn,v_RequestJson,v_ResultJson;
-    CALL core.p_step(v_RunLogIdn, NULL, 'Worker '||v_HandlerName||' executed successfully');
+	v_ProcedureCall = format('CALL %I.%I($1, $2, $3, $4, $5)', v_SchemaName, v_HandlerName);
+
+	EXECUTE v_ProcedureCall 
+    USING v_AnchorTs, v_UserIdn, v_RunLogIdn, v_RequestJson, v_ResultJson
+    INTO v_ResultJson;
+
+    CALL core.P_Step(v_RunLogIdn, NULL, 'Worker '||v_HandlerName||' executed successfully');
 
     SELECT jsonb_build_object(
 			'status', 'success',
@@ -219,18 +223,18 @@ BEGIN
 			'start_ts', v_AnchorTs,
 			'duration_ms', round(extract(epoch FROM (clock_timestamp() - v_AnchorTs)) * 1000),
 			'response', v_ResultJson,
-			'meter', core.f_build_meter_json(v_RunLogIdn)
+			'meter', core.F_BuildMeterJson(v_RunLogIdn)
 		)
     INTO p_OutputJson;
-    CALL core.p_step(v_RunLogIdn, NULL, 'Built response JSON');
+    CALL core.P_Step(v_RunLogIdn, NULL, 'Built response JSON');
 
     -- Mark run as complete
-    PERFORM core.f_run_log_end(v_RunLogIdn, p_OutputJson, TRUE);
+    PERFORM core.F_RunLogEnd(v_RunLogIdn, p_OutputJson, TRUE);
 
 EXCEPTION
     WHEN others THEN
         IF v_RunLogIdn IS NOT NULL THEN
-	        CALL core.p_step(v_RunLogIdn, NULL, 'ERROR: ' || SQLERRM);
+	        CALL core.P_Step(v_RunLogIdn, NULL, 'ERROR: ' || SQLERRM);
 		    SELECT jsonb_build_object(
 					'status', 'failure',
 					'error_msg', SQLERRM,
@@ -241,19 +245,19 @@ EXCEPTION
 					'start_ts', v_AnchorTs,
 					'duration_ms', round(extract(epoch FROM (clock_timestamp() - v_AnchorTs)) * 1000),
 					'response', null,
-					'meter', core.f_build_meter_json(v_RunLogIdn)
+					'meter', core.F_BuildMeterJson(v_RunLogIdn)
 				)
 		    INTO p_OutputJson;
 
-            PERFORM core.f_run_log_end(v_RunLogIdn,p_OutputJson,FALSE);
+            PERFORM core.F_RunLogEnd(v_RunLogIdn,p_OutputJson,FALSE);
 		ELSE 
 			RAISE;
         END IF;
 END;
 $BODY$;
 
--- 8. Create p_register_db_api procedure
-CREATE OR REPLACE PROCEDURE core.p_register_db_api(
+-- 8. Create P_RegisterDbApi procedure
+CREATE OR REPLACE PROCEDURE core.P_RegisterDbApi(
     IN      p_AnchorTs      TIMESTAMPTZ,
     IN      p_UserIdn       INT,
     IN      p_RunLogIdn     INT,
@@ -283,7 +287,7 @@ BEGIN
         Ts = EXCLUDED.Ts;
 
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'Register/Update DbApi');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'Register/Update DbApi');
 
     p_OutputJson := jsonb_build_object(
         'registered_count', v_Rc
@@ -291,8 +295,8 @@ BEGIN
 END;
 $BODY$;
 
--- 9. Create P_unregister_db_api procedure
-CREATE OR REPLACE PROCEDURE core.p_unregister_db_api(
+-- 9. Create P_UnregisterDbApi procedure
+CREATE OR REPLACE PROCEDURE core.P_UnregisterDbApi(
     IN      p_AnchorTs      TIMESTAMPTZ,
     IN      p_UserIdn       INT,
     IN      p_RunLogIdn     INT,
@@ -311,7 +315,7 @@ BEGIN
     );
 
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'Unregister DbApi');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'Unregister DbApi');
 
     p_OutputJson := jsonb_build_object(
         'unregistered_count', v_Rc
@@ -319,8 +323,8 @@ BEGIN
 END;
 $BODY$;
 
--- 10. Create p_sample_db_api procedure
-CREATE OR REPLACE PROCEDURE core.p_sample_db_api(
+-- 10. Create P_SampleDbApi procedure
+CREATE OR REPLACE PROCEDURE core.P_SampleDbApi(
     IN      p_AnchorTs      TIMESTAMPTZ,
     IN      p_UserIdn       INT,
     IN      p_RunLogIdn     INT,
@@ -350,12 +354,12 @@ BEGIN
     FROM (VALUES (1, 'one'),(2, 'two'),(3, 'three')) AS t (Id, Name);
 
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'Prepare Result JSON');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'Prepare Result JSON');
 END;
 $BODY$;
 
--- 11. Create f_get_config function to retrieve configuration
-CREATE OR REPLACE FUNCTION core.f_get_config(
+-- 11. Create F_GetConfig function to retrieve configuration
+CREATE OR REPLACE FUNCTION core.F_GetConfig(
     IN p_ConfigName     VARCHAR(64)
 )
 RETURNS JSONB
@@ -374,8 +378,8 @@ BEGIN
 END;
 $BODY$;
 
--- 12. Create p_set_config procedure to save configuration
-CREATE OR REPLACE PROCEDURE core.p_set_config(
+-- 12. Create P_SetConfig procedure to save configuration
+CREATE OR REPLACE PROCEDURE core.P_SetConfig(
     IN p_ConfigName     VARCHAR(64),
     IN p_ConfigValue    JSONB,
     IN p_UserIdn        INT
@@ -399,8 +403,8 @@ BEGIN
 END;
 $BODY$;
 
--- 13. Create f_get_control function to retrieve control configuration
-CREATE OR REPLACE FUNCTION core.f_get_control(
+-- 13. Create P_GetControl function to retrieve control configuration
+CREATE OR REPLACE FUNCTION core.F_GetControl(
     IN p_ControlName     VARCHAR(64)
 )
 RETURNS JSONB
@@ -419,8 +423,8 @@ BEGIN
 END;
 $BODY$;
 
--- 14. Create p_set_control procedure to save control configuration
-CREATE OR REPLACE PROCEDURE core.p_set_control(
+-- 14. Create P_SetControl procedure to save control configuration
+CREATE OR REPLACE PROCEDURE core.P_SetControl(
     IN p_ControlName     VARCHAR(64),
     IN p_ControlValue    JSONB,
     IN p_UserIdn        INT
@@ -452,50 +456,50 @@ TRUNCATE TABLE core.U_RunLog RESTART IDENTITY CASCADE;
 TRUNCATE TABLE core.U_RunLogStep RESTART IDENTITY CASCADE;
 
 -- View recent runs
-SELECT * FROM core.v_rl ORDER BY RunLogIdn DESC LIMIT 10;
+SELECT * FROM core.V_RL ORDER BY RunLogIdn DESC LIMIT 10;
 
 -- View steps for a specific run
-SELECT * FROM core.v_rls 
+SELECT * FROM core.V_RLS 
 WHERE RunLogIdn = (SELECT MAX(RunLogIdn) FROM core.U_RunLog) 
 ORDER BY Idn;
 
 -- Check configuration values
-SELECT core.f_get_config('donor_update_high_water_mark');
+SELECT core.F_GetConfig('DonorUpdHwm');
 
 -- Set configuration value
-CALL core.p_set_config(
-    'donor_update_high_water_mark',
+CALL core.P_SetConfig(
+    'DonorUpdHwm',
     '{"idn": 0, "updated_ts": "2026-01-24T12:00:00Z"}'::jsonb,
     1
 );
 
 -- Check control values
-SELECT core.f_get_control('donor_update_high_water_mark');
+SELECT core.P_GetControl('DonorUpdHwm');
 
 -- Set control value
-CALL core.p_set_control(
-    'donor_update_high_water_mark',
+CALL core.P_SetControl(
+    'DonorUpdHwm',
     '{"idn": 0, "updated_ts": "2026-01-24T12:00:00Z"}'::jsonb,
     1
 );
 
 TRUNCATE TABLE core.U_DbApi;
-DELETE from core.U_DbApi WHERE DbApiName = 'register_db_api';
-DELETE from core.U_DbApi WHERE DbApiName = 'unregister_db_api';
+DELETE from core.U_DbApi WHERE DbApiName = 'RegisterDbApi';
+DELETE from core.U_DbApi WHERE DbApiName = 'UnregisterDbApi';
 
 INSERT INTO core.U_DbApi (DbApiName, SchemaName, HandlerName, PropertyList, UserIdn, Ts)
-VALUES ('register_db_api', 'core', 'p_register_db_api', '{}', 1, now());
+VALUES ('RegisterDbApi', 'core', 'P_RegisterDbApi', '{}', 1, now());
 
 INSERT INTO core.U_DbApi (DbApiName, SchemaName, HandlerName, PropertyList, UserIdn, Ts)
-VALUES ('unregister_db_api', 'core', 'p_unregister_db_api', '{}', 1, now());
+VALUES ('UnregisterDbApi', 'core', 'P_UnregisterDbApi', '{}', 1, now());
 
-CALL core.p_db_api (
+CALL core.P_DbApi (
     '{
-        "db_api_name": "unregister_db_api",	
+        "db_api_name": "UnregisterDbApi",	
         "request": {
             "records": [
                 {
-                    "db_api_name": "sample_db_api"
+                    "db_api_name": "SampleDbApi"
                 }
             ]
         }
@@ -503,15 +507,15 @@ CALL core.p_db_api (
     null
 );
 
-CALL core.p_db_api (
+CALL core.P_DbApi (
     '{
-        "db_api_name": "register_db_api",
+        "db_api_name": "RegisterDbApi",
         "request": {
             "records": [
                 {
-                    "db_api_name": "sample_db_api",
+                    "db_api_name": "SampleDbApi",
                     "schema_name": "core",
-                    "handler_name": "p_sample_db_api",
+                    "handler_name": "P_SampleDbApi",
                     "property_list": {
                         "description": "sample DbApi for testing",
                         "version": "1.0",
@@ -524,9 +528,9 @@ CALL core.p_db_api (
     null
 );
 
-CALL core.p_db_api (
+CALL core.P_DbApi (
 	'{
-		"db_api_name": "sample_db_api",	
+		"db_api_name": "SampleDbApi",	
 		"request": {
 			  "test_param": "Hello"
 		}
@@ -538,9 +542,9 @@ DO $RUN$
 DECLARE
     v_output JSONB;
 BEGIN
-    CALL core.p_db_api (
+    CALL core.P_DbApi (
     '{
-		"db_api_name": "sample_db_api",	
+		"db_api_name": "SampleDbApi",	
 		"request": {
 			  "test_param": "Hello"
     	}
@@ -552,8 +556,8 @@ BEGIN
 END 
 $RUN$;
 
-select * from core.v_rl ORDER BY RunLogIdn DESC LIMIT 1;
-select * from core.v_rls WHERE RunLogIdn=(select MAX(RunLogIdn) from core.U_RunLog) order by Idn;
+select * from core.V_RL ORDER BY RunLogIdn DESC LIMIT 1;
+select * from core.V_RLS WHERE RunLogIdn=(select MAX(RunLogIdn) from core.U_RunLog) order by Idn;
 
 delete from core.U_DbApi where schemaname='stp';
 select * from core.U_DbApi where schemaname='stp';
@@ -562,30 +566,30 @@ DO $$
 DECLARE
     v_OutputJson JSONB;
 BEGIN
-    CALL core.p_db_api(
+    CALL core.P_DbApi(
         '{
-            "db_api_name": "register_db_api",
+            "db_api_name": "RegisterDbApi",
             "user_idn": 1,
             "request": {
                 "records": [
-                    {"db_api_name": "get_project", "schema_name": "stp", "handler_name": "p_get_project", "property_list": {}},
-                    {"db_api_name": "search_project", "schema_name": "stp", "handler_name": "p_search_project", "property_list": {}},
-                    {"db_api_name": "save_project", "schema_name": "stp", "handler_name": "p_save_project", "property_list": {}},
-                    {"db_api_name": "delete_project", "schema_name": "stp", "handler_name": "p_delete_project", "property_list": {}},
-                    {"db_api_name": "get_donor", "schema_name": "stp", "handler_name": "p_get_donor", "property_list": {}},
-                    {"db_api_name": "save_donor", "schema_name": "stp", "handler_name": "p_save_donor", "property_list": {}},
-                    {"db_api_name": "delete_donor", "schema_name": "stp", "handler_name": "p_delete_donor", "property_list": {}},
-                    {"db_api_name": "get_pledge", "schema_name": "stp", "handler_name": "p_get_pledge", "property_list": {}},
-                    {"db_api_name": "save_pledge", "schema_name": "stp", "handler_name": "p_save_pledge", "property_list": {}},
-                    {"db_api_name": "delete_pledge", "schema_name": "stp", "handler_name": "p_delete_pledge", "property_list": {}},
-                    {"db_api_name": "create_tree_bulk", "schema_name": "stp", "handler_name": "p_create_tree_bulk", "property_list": {}},
-                    {"db_api_name": "get_tree", "schema_name": "stp", 	"handler_name":"p_get_tree","property_list":{"description":"sample DbApi for testing"}},
-                    {"db_api_name": "save_tree", 	"schema_name":"stp","handler_name":"p_save_tree","property_list":{"description":"sample DbApi for testing"}},
-                    {"db_api_name": "delete_tree","schema_name":"stp","handler_name":"p_delete_tree","property_list":{"description":"sample DbApi for testing"}},
-                    {"db_api_name": "upload_tree_photo","schema_name":"stp","handler_name":"p_upload_tree_photo","property_list":{"description":"sample DbApi for testing"}},
-                    {"db_api_name": "get_donor_update","schema_name":"stp","handler_name":"p_get_donor_update","property_list":{"description":"sample DbApi for testing"}},
-                    {"db_api_name": "post_donor_update","schema_name":"stp","handler_name":"p_post_donor_update","property_list":{"description":"sample DbApi for testing"}},
-                    {"db_api_name": "get_provider", "schema_name": "stp", "handler_name": "p_get_provider", "property_list": {}}
+                    {"db_api_name": "GetProject", "schema_name": "stp", "handler_name": "P_GetProject", "property_list": {}},
+                    {"db_api_name": "SearchProject", "schema_name": "stp", "handler_name": "P_SearchProject", "property_list": {}},
+                    {"db_api_name": "SaveProject", "schema_name": "stp", "handler_name": "P_SaveProject", "property_list": {}},
+                    {"db_api_name": "DeleteProject", "schema_name": "stp", "handler_name": "P_DeleteProject", "property_list": {}},
+                    {"db_api_name": "GetDonor", "schema_name": "stp", "handler_name": "P_GetDonor", "property_list": {}},
+                    {"db_api_name": "SaveDonor", "schema_name": "stp", "handler_name": "P_SaveDonor", "property_list": {}},
+                    {"db_api_name": "DeleteDonor", "schema_name": "stp", "handler_name": "P_DeleteDonor", "property_list": {}},
+                    {"db_api_name": "GetPledge", "schema_name": "stp", "handler_name": "P_GetPledge", "property_list": {}},
+                    {"db_api_name": "SavePledge", "schema_name": "stp", "handler_name": "P_SavePledge", "property_list": {}},
+                    {"db_api_name": "DeletePledge", "schema_name": "stp", "handler_name": "P_DeletePledge", "property_list": {}},
+                    {"db_api_name": "CreateTreeBulk", "schema_name": "stp", "handler_name": "P_CreateTreeBulk", "property_list": {}},
+                    {"db_api_name": "GetTree", "schema_name": "stp", "handler_name":"P_GetTree","property_list":{"description":"sample DbApi for testing"}},
+                    {"db_api_name": "SaveTree", "schema_name":"stp","handler_name":"P_SaveTree","property_list":{"description":"sample DbApi for testing"}},
+                    {"db_api_name": "DeleteTree","schema_name":"stp","handler_name":"P_DeleteTree","property_list":{"description":"sample DbApi for testing"}},
+                    {"db_api_name": "UploadTreePhoto","schema_name":"stp","handler_name":"P_UploadTreePhoto","property_list":{"description":"sample DbApi for testing"}},
+                    {"db_api_name": "GetDonorUpdate","schema_name":"stp","handler_name":"P_GetDonorUpdate","property_list":{"description":"sample DbApi for testing"}},
+                    {"db_api_name": "PostDonorUpdate","schema_name":"stp","handler_name":"P_PostDonorUpdate","property_list":{"description":"sample DbApi for testing"}},
+                    {"db_api_name": "GetProvider", "schema_name": "stp", "handler_name": "P_GetProvider", "property_list": {}}
                 ]
             }
         }'::JSONB,

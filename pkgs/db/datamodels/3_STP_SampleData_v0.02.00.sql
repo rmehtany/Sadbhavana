@@ -14,20 +14,9 @@ TRUNCATE TABLE stp.u_donor RESTART IDENTITY;
 TRUNCATE TABLE stp.u_project RESTART IDENTITY;
 TRUNCATE TABLE stp.u_treetype RESTART IDENTITY;
 TRUNCATE TABLE stp.u_provider RESTART IDENTITY;
-TRUNCATE TABLE stp.u_user RESTART IDENTITY;
 
 -- Sample Data for Tree Planting Database Schema
 -- Run this after creating the schema structure
-
----------------------------------------------------------
--- U_User - Insert users first (referenced by other tables)
----------------------------------------------------------
-INSERT INTO stp.u_user (username, mobilenumber, ts) VALUES
-('admin', '+1-555-0100', '2024-01-01 10:00:00'),
-('john_doe', '+1-555-0101', '2024-01-15 09:30:00'),
-('jane_smith', '+1-555-0102', '2024-01-20 14:00:00'),
-('mike_wilson', '+1-555-0103', '2024-02-01 11:00:00'),
-('sarah_jones', '+1-555-0104', '2024-02-10 16:30:00');
 
 ---------------------------------------------------------
 -- U_Provider - Cloud storage providers
@@ -126,7 +115,7 @@ INSERT INTO stp.u_tree (treelocation, treetypeidn, pledgeidn, creditname, treeid
 ---------------------------------------------------------
 -- U_File - Photo files
 ---------------------------------------------------------
-INSERT INTO stp.u_file (filepath, filename, filetype, filestoreid, createdts, provideridn) VALUES
+INSERT INTO stp.u_file (filepath, filename, filetype, filestoreid, ts, provideridn) VALUES
 ('/photos/2024/04/', 'tree_photo_001.jpg', 'image/jpeg', 's3://tree-photos/001.jpg', '2024-04-16 10:00:00', 1),
 ('/photos/2024/04/', 'tree_photo_002.jpg', 'image/jpeg', 's3://tree-photos/002.jpg', '2024-04-16 10:05:00', 1),
 ('/photos/2024/04/', 'tree_photo_003.jpg', 'image/jpeg', 's3://tree-photos/003.jpg', '2024-04-17 14:30:00', 1),

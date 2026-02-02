@@ -6,7 +6,7 @@
 -- delete_tree
 
 -- CreateTreeBulk - Create trees for pledges in a project
-CREATE OR REPLACE PROCEDURE stp.p_create_tree_bulk(
+CREATE OR REPLACE PROCEDURE stp.P_CreateTreeBulk(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -31,11 +31,11 @@ BEGIN
     IF v_ProjectIdn IS NULL THEN
         RAISE EXCEPTION 'project_idn is required';
     END IF;
-    CALL core.p_step(p_RunLogIdn, NULL, 'ProjectIdn: ' || v_ProjectIdn);
+    CALL core.P_Step(p_RunLogIdn, NULL, 'ProjectIdn: ' || v_ProjectIdn);
 
     -- Get CreateType
     v_CreateType := COALESCE(p_InputJson->>'create_type', 'Missing');
-    CALL core.p_step(p_RunLogIdn, NULL, 'CreateType: ' || v_CreateType);
+    CALL core.P_Step(p_RunLogIdn, NULL, 'CreateType: ' || v_CreateType);
 
     -- Validate project exists and get ProjectId
     SELECT ProjectId
@@ -46,7 +46,7 @@ BEGIN
     IF v_ProjectId IS NULL THEN
         RAISE EXCEPTION 'Project not found for ProjectIdn: %', v_ProjectIdn;
     END IF;
-    CALL core.p_step(p_RunLogIdn, NULL, 'Found Project: ' || v_ProjectId);
+    CALL core.P_Step(p_RunLogIdn, NULL, 'Found Project: ' || v_ProjectId);
 
     -- Handle Clean option
     IF v_CreateType = 'Clean' THEN
@@ -70,7 +70,7 @@ BEGIN
         WHERE t.PledgeIdn = p.PledgeIdn
           AND p.ProjectIdn = v_ProjectIdn;
         GET DIAGNOSTICS v_Rc = ROW_COUNT;
-        CALL core.p_step(p_RunLogIdn, v_Rc, 'DELETE stp.U_Tree (Clean mode)');
+        CALL core.P_Step(p_RunLogIdn, v_Rc, 'DELETE stp.U_Tree (Clean mode)');
     END IF;
 
     -- Get the current max tree number for this project
@@ -80,7 +80,7 @@ BEGIN
         JOIN stp.U_Tree t 
             ON p.PledgeIdn = t.PledgeIdn
     WHERE p.ProjectIdn = v_ProjectIdn;
-    CALL core.p_step(p_RunLogIdn, NULL, 'Max TreeNum: ' || v_MaxTreeNum);
+    CALL core.P_Step(p_RunLogIdn, NULL, 'Max TreeNum: ' || v_MaxTreeNum);
 
     -- Create tree records for project pledges
     INSERT INTO stp.U_Tree (TreeId, PledgeIdn, CreditName, TreeTypeIdn, TreeLocation, PropertyList)
@@ -98,7 +98,7 @@ BEGIN
 	    CROSS JOIN LATERAL jsonb_each_text(t.PledgeCredit) AS pc
 	    CROSS JOIN LATERAL generate_series(1, (pc.value)::INT) AS gs(n);
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'INSERT stp.U_Tree');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'INSERT stp.U_Tree');
 
     -- Return summary
     p_OutputJson := jsonb_build_object(
@@ -107,11 +107,12 @@ BEGIN
         'trees_created', v_Rc,
         'create_type', v_CreateType
     );
+    CALL core.P_Step(p_RunLogIdn, null, 'prepare CreateTreeBulk json');
 END;
 $BODY$;
 
 -- GetTree - Search trees by various criteria
-CREATE OR REPLACE PROCEDURE stp.p_get_tree(
+CREATE OR REPLACE PROCEDURE stp.P_GetTree(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -132,8 +133,8 @@ BEGIN
     v_PledgeIdn := NULLIF(p_InputJson->>'pledge_idn', '')::INT;
     v_ProjectIdn := NULLIF(p_InputJson->>'project_idn', '')::INT;
     v_DonorIdn := NULLIF(p_InputJson->>'donor_idn', '')::INT;
-    v_TreeIdPattern := '%' || p_InputJson->>'tree_id_pattern' || '%';
-    v_CreditNamePattern := '%' || p_InputJson->>'credit_name_pattern' || '%';
+    v_TreeIdPattern := '%' || (p_InputJson->>'tree_id_pattern') || '%';
+    v_CreditNamePattern := '%' || (p_InputJson->>'credit_name_pattern') || '%';
     
     RAISE NOTICE 'GetTree - PledgeIdn: %, ProjectIdn: %, DonorIdn: %, TreeIdPattern: %, CreditNamePattern: %', 
         v_PledgeIdn, v_ProjectIdn, v_DonorIdn, v_TreeIdPattern, v_CreditNamePattern;
@@ -160,15 +161,14 @@ BEGIN
 		    AND (v_DonorIdn IS NULL OR p.DonorIdn = v_DonorIdn)
     WHERE (v_PledgeIdn IS NULL OR t.PledgeIdn = v_PledgeIdn)
       AND (v_TreeIdPattern IS NULL OR t.TreeId LIKE v_TreeIdPattern)
-      AND (v_CreditNamePattern IS NULL OR t.CreditName LIKE v_CreditNamePattern)
-    ;
+      AND (v_CreditNamePattern IS NULL OR t.CreditName LIKE v_CreditNamePattern);
 
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'SELECT Trees');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'prepare GetTree json');
 END;
 $BODY$;
 
-CREATE OR REPLACE PROCEDURE stp.p_save_tree(
+CREATE OR REPLACE PROCEDURE stp.P_SaveTree(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -199,7 +199,7 @@ BEGIN
         NULLIF(T->>'tree_type_idn', '')::INT
     FROM jsonb_array_elements(p_InputJson) AS T;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'INSERT T_Tree');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'INSERT T_Tree');
 
     -- Validate required field: TreeIdn
     IF EXISTS (SELECT 1 FROM T_Tree WHERE TreeIdn IS NULL) THEN
@@ -259,7 +259,7 @@ BEGIN
     FROM T_Tree tt
     WHERE ut.TreeIdn = tt.TreeIdn;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'UPDATE stp.U_Tree');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'UPDATE stp.U_Tree');
 
     -- Return updated trees
     SELECT COALESCE(
@@ -279,11 +279,12 @@ BEGIN
     INTO p_OutputJson
     FROM stp.U_Tree t
     WHERE t.TreeIdn IN (SELECT TreeIdn FROM T_Tree);
+    CALL core.P_Step(p_RunLogIdn, null, 'prepare SaveTree json');
 END;
 $BODY$;
 
 -- DeleteTree - Delete trees by PledgeIdns with validation
-CREATE OR REPLACE PROCEDURE stp.p_delete_tree(
+CREATE OR REPLACE PROCEDURE stp.P_DeleteTree(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -300,7 +301,7 @@ DECLARE
 BEGIN
     -- Get force_delete flag (default false)
     v_ForceDelete := COALESCE((p_InputJson->>'force_delete')::BOOLEAN, false);
-    CALL core.p_step(p_RunLogIdn, NULL, 'ForceDelete: ' || v_ForceDelete);
+    CALL core.P_Step(p_RunLogIdn, NULL, 'ForceDelete: ' || v_ForceDelete);
 
     -- Create temp table for delete requests
     CREATE TEMP TABLE T_TreeDelete (
@@ -310,9 +311,9 @@ BEGIN
     -- Parse input JSON - expecting array of pledge_idn values
     INSERT INTO T_TreeDelete (PledgeIdn)
     SELECT (T->>'pledge_idn')::INT
-    FROM jsonb_array_elements(p_InputJson) AS T;
+    FROM jsonb_array_elements(p_InputJson->'pledges') AS T;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'INSERT T_TreeDelete');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'INSERT T_TreeDelete');
 
     IF v_Rc = 0 THEN
         RAISE EXCEPTION 'No valid pledge_idn values provided for tree deletion';
@@ -340,7 +341,7 @@ BEGIN
 				ON ttd.PledgeIdn = t.PledgeIdn
         WHERE tp.TreeIdn = t.TreeIdn;
         GET DIAGNOSTICS v_Rc = ROW_COUNT;
-        CALL core.p_step(p_RunLogIdn, v_Rc, 'DELETE stp.U_TreePhoto (force)');
+        CALL core.P_Step(p_RunLogIdn, v_Rc, 'DELETE stp.U_TreePhoto (force)');
 
         -- Also delete from donor send log
         DELETE FROM stp.U_DonorSendLog dsl
@@ -349,7 +350,7 @@ BEGIN
 				ON ttd.PledgeIdn = t.PledgeIdn
         WHERE dsl.TreeIdn = t.TreeIdn;
         GET DIAGNOSTICS v_Rc = ROW_COUNT;
-        CALL core.p_step(p_RunLogIdn, v_Rc, 'DELETE stp.U_DonorSendLog (force)');
+        CALL core.P_Step(p_RunLogIdn, v_Rc, 'DELETE stp.U_DonorSendLog (force)');
     END IF;
 
     -- Capture TreeIdns being deleted
@@ -364,7 +365,7 @@ BEGIN
     USING T_TreeDelete ttd
     WHERE t.PledgeIdn = ttd.PledgeIdn;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'DELETE stp.U_Tree');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'DELETE stp.U_Tree');
 
     -- Return result
     p_OutputJson := jsonb_build_object(
@@ -372,6 +373,242 @@ BEGIN
         'deleted_tree_idns', COALESCE(v_DeletedTreeIdns, ''),
         'force_delete', v_ForceDelete
     );
+    CALL core.P_Step(p_RunLogIdn, null, 'prepare DeleteTree json');
 END;
 $BODY$;
+
+CALL core.P_DbApi (
+    '{
+        "db_api_name": "RegisterDbApi",	
+        "request": {
+            "records": [
+                {
+                    "db_api_name": "CreateTreeBulk",
+                    "schema_name": "stp",
+                    "handler_name": "P_CreateTreeBulk",
+                    "property_list": {
+                        "description": "Creates tree records in bulk for pledges in a project",
+                        "version": "1.0",
+                        "permissions": ["write"]
+                    }
+                },
+                {
+                    "db_api_name": "GetTree",
+                    "schema_name": "stp",
+                    "handler_name": "P_GetTree",
+                    "property_list": {
+                        "description": "Searches trees by pledge, project, donor, tree ID, or credit name pattern",
+                        "version": "1.0",
+                        "permissions": ["read"]
+                    }
+                },
+                {
+                    "db_api_name": "SaveTree",
+                    "schema_name": "stp",
+                    "handler_name": "P_SaveTree",
+                    "property_list": {
+                        "description": "Updates tree location and type information",
+                        "version": "1.0",
+                        "permissions": ["write"]
+                    }
+                },
+                {
+                    "db_api_name": "DeleteTree",
+                    "schema_name": "stp",
+                    "handler_name": "P_DeleteTree",
+                    "property_list": {
+                        "description": "Deletes trees by pledge IDN with optional force delete",
+                        "version": "1.0",
+                        "permissions": ["write"]
+                    }
+                }
+            ]
+        }
+    }'::jsonb,
+    null
+);
+
 -- End of 4_tree.sql
+select * from stp.U_Tree;
+
+-- Example 1: Create trees for a project (incremental mode - default)
+CALL core.P_DbApi (
+    '{
+        "db_api_name": "CreateTreeBulk",	
+        "request": {
+            "project_idn": "1",
+            "create_type": "Missing"
+        }
+    }'::jsonb,
+    NULL
+);
+
+-- Example 2: Create trees for a project (clean mode - deletes existing first)
+CALL core.P_DbApi (
+    '{
+        "db_api_name": "CreateTreeBulk",	
+        "request": {
+            "project_idn": "1",
+            "create_type": "Clean"
+        }
+    }'::jsonb,
+    NULL
+);
+
+-- Example 3: Get all trees for a specific pledge
+CALL core.P_DbApi (
+    '{
+        "db_api_name": "GetTree",	
+        "request": {
+            "pledge_idn": "1"
+        }
+    }'::jsonb,
+    NULL
+);
+
+-- Example 4: Get all trees for a specific project
+CALL core.P_DbApi (
+    '{
+        "db_api_name": "GetTree",	
+        "request": {
+            "project_idn": "1"
+        }
+    }'::jsonb,
+    NULL
+);
+
+-- Example 5: Get all trees for a specific donor
+CALL core.P_DbApi (
+    '{
+        "db_api_name": "GetTree",	
+        "request": {
+            "donor_idn": "1"
+        }
+    }'::jsonb,
+    NULL
+);
+
+-- Example 6: Search trees by tree ID pattern
+CALL core.P_DbApi (
+    '{
+        "db_api_name": "GetTree",	
+        "request": {
+            "tree_id_pattern": "PRJ001"
+        }
+    }'::jsonb,
+    NULL
+);
+
+-- Example 7: Search trees by credit name pattern
+CALL core.P_DbApi (
+    '{
+        "db_api_name": "GetTree",	
+        "request": {
+            "credit_name_pattern": "Sharma"
+        }
+    }'::jsonb,
+    NULL
+);
+
+-- Example 8: Update tree location (latitude and longitude)
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "SaveTree",
+        "request": [
+            {
+                "tree_idn": "1",
+                "latitude": "19.0760",
+                "longitude": "72.8777"
+            },
+            {
+                "tree_idn": "2",
+                "latitude": "23.0225",
+                "longitude": "72.5714"
+            }
+        ]
+    }'::jsonb,
+    NULL
+);
+
+-- Example 9: Update tree type
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "SaveTree",
+        "request": [
+            {
+                "tree_idn": "1",
+                "tree_type_idn": "5"
+            }
+        ]
+    }'::jsonb,
+    NULL
+);
+
+-- Example 10: Update both location and tree type
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "SaveTree",
+        "request": [
+            {
+                "tree_idn": "3",
+                "latitude": "18.5204",
+                "longitude": "73.8567",
+                "tree_type_idn": "7"
+            }
+        ]
+    }'::jsonb,
+    NULL
+);
+
+-- Example 11: Delete trees for a single pledge (will fail if photos exist)
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "DeleteTree",
+        "request": {
+            "pledges": [
+	            {
+	                "pledge_idn": "5"
+	            }
+	        ]
+		}
+    }'::jsonb,
+    NULL
+);
+
+-- Example 12: Delete trees for multiple pledges
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "DeleteTree",
+        "request": {
+            "pledges": [
+	            {
+	                "pledge_idn": "6"
+	            },
+	            {
+	                "pledge_idn": "7"
+	            }
+	        ]
+		}
+    }'::jsonb,
+    NULL
+);
+
+-- Example 13: Force delete trees (including photos and donor send logs)
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "DeleteTree",
+        "request": {
+            "force_delete": true,
+            "pledges": [
+                {
+                    "pledge_idn": "8"
+                }
+            ]
+        }
+    }'::jsonb,
+    NULL
+);
+
+select * from stp.U_Tree;
+select * from core.V_RL ORDER BY RunLogIdn DESC;
+select * from core.V_RLS WHERE RunLogIdn=(select MAX(RunLogIdn) from core.U_RunLog) order by Idn;

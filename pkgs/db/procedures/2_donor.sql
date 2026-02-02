@@ -6,7 +6,7 @@
 -- merge_donor
 
 -- GetDonor - Search donors by pattern
-CREATE OR REPLACE PROCEDURE stp.p_get_donor(
+CREATE OR REPLACE PROCEDURE stp.P_GetDonor(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -35,7 +35,7 @@ BEGIN
                 'country', Country,
                 'birth_dt', BirthDt,
                 'property_list', PropertyList
-            )
+            ) ORDER BY DonorName, MobileNumber
         ), '[]'::jsonb
     )
     INTO p_OutputJson
@@ -43,15 +43,14 @@ BEGIN
     WHERE (v_DonorPattern IS NULL 
            OR DonorName LIKE v_DonorPattern 
            OR MobileNumber LIKE v_DonorPattern
-           OR EmailAddr LIKE v_DonorPattern)
-    ORDER BY DonorName, MobileNumber;
+           OR EmailAddr LIKE v_DonorPattern);
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'SELECT Donors');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'SELECT Donors');
 END;
 $BODY$;
 
 -- SaveDonor - Insert/Update donors with validation
-CREATE OR REPLACE PROCEDURE stp.p_save_donor(
+CREATE OR REPLACE PROCEDURE stp.P_SaveDonor(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -89,7 +88,7 @@ BEGIN
         COALESCE(T->'property_list', '{}'::jsonb)
     FROM jsonb_array_elements(p_InputJson) AS T;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'INSERT T_Donor');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'INSERT T_Donor');
 
     -- Validate required fields
     IF EXISTS (SELECT 1 FROM T_Donor WHERE DonorName IS NULL OR MobileNumber IS NULL OR City IS NULL OR Country IS NULL) THEN
@@ -145,7 +144,7 @@ BEGIN
     WHERE ud.DonorIdn = td.DonorIdn
       AND td.DonorIdn IS NOT NULL;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'UPDATE stp.U_Donor');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'UPDATE stp.U_Donor');
 
     -- Insert new donors
     INSERT INTO stp.U_Donor (DonorName, MobileNumber, City, EmailAddr, Country, BirthDt, PropertyList, UserIdn, Ts)
@@ -162,7 +161,7 @@ BEGIN
     FROM T_Donor td
     WHERE td.DonorIdn IS NULL;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'INSERT stp.U_Donor');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'INSERT stp.U_Donor');
 
     -- Return saved donors
     SELECT COALESCE(
@@ -186,7 +185,7 @@ END;
 $BODY$;
 
 -- DeleteDonor - Delete donors with validation
-CREATE OR REPLACE PROCEDURE stp.p_delete_donor(
+CREATE OR REPLACE PROCEDURE stp.P_DeleteDonor(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -211,14 +210,14 @@ BEGIN
     FROM jsonb_array_elements(p_InputJson) AS T
     WHERE T->>'donor_idn' IS NOT NULL;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'INSERT T_DonorDelete');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'INSERT T_DonorDelete');
 
     IF v_Rc = 0 THEN
         RAISE EXCEPTION 'No valid donor_idn values provided for deletion';
     END IF;
 
     -- Check for donors with existing pledges
-    SELECT string_agg(DISTINCT tdd.DonorIdn,',')
+    SELECT string_agg(DISTINCT tdd.DonorIdn::VARCHAR,',')
     INTO v_DonorNames
     FROM T_DonorDelete tdd
     	JOIN stp.U_Pledge up
@@ -238,7 +237,7 @@ BEGIN
     USING T_DonorDelete tdd
     WHERE ud.DonorIdn = tdd.DonorIdn;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'DELETE stp.U_Donor');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'DELETE stp.U_Donor');
 
     -- Return result
     p_OutputJson := jsonb_build_object(
@@ -247,4 +246,190 @@ BEGIN
     );
 END;
 $BODY$;
--- MergeDonor - Merge donor records
+
+CALL core.P_DbApi (
+    '{
+        "db_api_name": "RegisterDbApi",	
+        "request": {
+            "records": [
+                {
+                    "db_api_name": "GetDonor",
+                    "schema_name": "stp",
+                    "handler_name": "P_GetDonor",
+                    "property_list": {
+                        "description": "Searches donors by name, mobile number, or email pattern",
+                        "version": "1.0",
+                        "permissions": ["read"]
+                    }
+                },
+                {
+                    "db_api_name": "SaveDonor",
+                    "schema_name": "stp",
+                    "handler_name": "P_SaveDonor",
+                    "property_list": {
+                        "description": "Saves a new donor or updates an existing one",
+                        "version": "1.0",
+                        "permissions": ["write"]
+                    }
+                },
+                {
+                    "db_api_name": "DeleteDonor",
+                    "schema_name": "stp",
+                    "handler_name": "P_DeleteDonor",
+                    "property_list": {
+                        "description": "Deletes a donor by Idn",
+                        "version": "1.0",
+                        "permissions": ["write"]
+                    }
+                }
+            ]
+        }
+    }'::jsonb,
+    null
+);
+
+-- End of 2_donor.sql
+select * from stp.U_Donor;
+
+-- Example 1: Search all donors
+CALL core.P_DbApi (
+    '{
+        "db_api_name": "GetDonor",	
+        "request": {
+            "donor_pattern": null
+        }
+    }'::jsonb,
+    NULL
+);
+
+-- Example 2: Search donors by name pattern
+CALL core.P_DbApi (
+    '{
+        "db_api_name": "GetDonor",	
+        "request": {
+            "donor_pattern": "Sharma"
+        }
+    }'::jsonb,
+    NULL
+);
+
+-- Example 3: Search donors by mobile number pattern
+CALL core.P_DbApi (
+    '{
+        "db_api_name": "GetDonor",	
+        "request": {
+            "donor_pattern": "9876"
+        }
+    }'::jsonb,
+    NULL
+);
+
+-- Example 4: Insert new donors with required fields only
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "SaveDonor",
+        "request": [
+            {
+                "donor_name": "Rajesh Kumar Sharma",
+                "mobile_number": "+91-9876543210",
+                "city": "Mumbai",
+                "country": "India"
+            },
+            {
+                "donor_name": "Priya Patel",
+                "mobile_number": "+91-9123456789",
+                "city": "Ahmedabad",
+                "country": "India"
+            }
+        ]
+    }'::jsonb,
+    NULL
+);
+
+-- Example 5: Insert new donors with all optional fields
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "SaveDonor",
+        "request": [
+            {
+                "donor_name": "Amit Desai",
+                "mobile_number": "+91-9988776655",
+                "city": "Pune",
+                "country": "India",
+                "email_addr": "amit.desai@example.com",
+                "birth_dt": "1985-03-15",
+                "property_list": {
+                    "occupation": "Engineer",
+                    "preferred_contact": "email"
+                }
+            },
+            {
+                "donor_name": "Sneha Reddy",
+                "mobile_number": "+91-8765432109",
+                "city": "Hyderabad",
+                "country": "India",
+                "email_addr": "sneha.r@example.com",
+                "birth_dt": "1990-07-22",
+                "property_list": {
+                    "company": "Tech Corp",
+                    "referral_source": "website"
+                }
+            }
+        ]
+    }'::jsonb,
+    NULL
+);
+
+-- Example 6: Update existing donors (use actual donor_idn from previous inserts)
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "SaveDonor",
+        "request": [
+            {
+                "donor_idn": "1",
+                "donor_name": "Rajesh Kumar Sharma",
+                "mobile_number": "+91-9876543210",
+                "city": "Mumbai",
+                "country": "India",
+                "email_addr": "rajesh.sharma@example.com",
+                "property_list": {
+                    "vip_status": true
+                }
+            }
+        ]
+    }'::jsonb,
+    NULL
+);
+
+-- Example 7: Delete single donor
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "DeleteDonor",
+        "request": [
+            {
+                "donor_idn": "2"
+            }
+        ]
+    }'::jsonb,
+    NULL
+);
+
+-- Example 8: Delete multiple donors
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "DeleteDonor",
+        "request": [
+            {
+                "donor_idn": "3"
+            },
+            {
+                "donor_idn": "4"
+            }
+        ]
+    }'::jsonb,
+    NULL
+);
+
+select * from stp.U_Donor;
+select * from core.V_RL ORDER BY RunLogIdn DESC;
+select * from core.V_RLS WHERE RunLogIdn=(select MAX(RunLogIdn) from core.U_RunLog) order by Idn;

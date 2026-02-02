@@ -5,7 +5,7 @@
 	-- delete_project
 
 -- Rename to SearchProject: GetProject - Searches by pattern matching on project name or project id
-CREATE OR REPLACE PROCEDURE stp.p_get_project(
+CREATE OR REPLACE PROCEDURE stp.P_GetProject(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -19,7 +19,10 @@ DECLARE
     v_ProjectId VARCHAR(64);
 BEGIN
     -- Extract ProjectId from input
-    v_ProjectId := COALESCE(p_InputJson->>'project_id', '');
+    v_ProjectId := p_InputJson->>'project_id';
+    IF v_ProjectId IS NULL THEN
+        RAISE EXCEPTION 'Missing parameter project_id';
+    END IF;
     RAISE NOTICE 'ProjectId: %', v_ProjectId;
 
     -- Build result JSON
@@ -40,11 +43,11 @@ BEGIN
     WHERE ProjectId = v_ProjectId;
 
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'query data');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'query data');
 END;
 $BODY$;
 
-CREATE OR REPLACE PROCEDURE stp.p_search_project(
+CREATE OR REPLACE PROCEDURE stp.P_SearchProject(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -84,12 +87,12 @@ BEGIN
            OR ProjectName LIKE v_ProjectPattern);
 
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'query data');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'query data');
 END;
 $BODY$;
 
 -- SaveProject - Insert/Update projects with validation
-CREATE OR REPLACE PROCEDURE stp.p_save_project(
+CREATE OR REPLACE PROCEDURE stp.P_SaveProject(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -129,7 +132,7 @@ BEGIN
         COALESCE(T->'property_list', '{}'::jsonb)
     FROM jsonb_array_elements(p_InputJson) AS T;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'INSERT T_Project');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'INSERT T_Project');
 
     -- Validate required fields
     IF EXISTS (SELECT 1 FROM T_Project WHERE ProjectId IS NULL OR ProjectName IS NULL) THEN
@@ -182,7 +185,7 @@ BEGIN
     WHERE up.ProjectIdn = tp.ProjectIdn
       AND tp.ProjectIdn IS NOT NULL;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'UPDATE stp.U_Project');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'UPDATE stp.U_Project');
 
     -- Insert new projects
     INSERT INTO stp.U_Project (ProjectId, ProjectName, StartDt, TreeCntPledged, TreeCntPlanted, ProjectLocation, PropertyList, UserIdn, Ts)
@@ -192,7 +195,7 @@ BEGIN
 	FROM T_Project
     WHERE ProjectIdn IS NULL;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'INSERT stp.U_Project');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'INSERT stp.U_Project');
 
     -- Return saved projects
     SELECT COALESCE(
@@ -213,12 +216,12 @@ BEGIN
     INTO p_OutputJson
     FROM stp.U_Project
     WHERE ProjectId IN (SELECT ProjectId FROM T_Project);
-    CALL core.p_step(p_RunLogIdn, null, 'build response json');
+    CALL core.P_Step(p_RunLogIdn, null, 'build response json');
 END;
 $BODY$;
 
 -- DeleteProject - Delete projects with validation
-CREATE OR REPLACE PROCEDURE stp.p_delete_project(
+CREATE OR REPLACE PROCEDURE stp.P_DeleteProject(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
     IN      P_RunLogIdn     INT,
@@ -243,7 +246,7 @@ BEGIN
     FROM jsonb_array_elements(p_InputJson) AS T
     WHERE T->>'project_idn' IS NOT NULL;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'INSERT T_ProjectDelete');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'INSERT T_ProjectDelete');
     IF v_Rc = 0 THEN
         RAISE EXCEPTION 'No valid project_idn values provided for deletion';
     END IF;
@@ -271,7 +274,7 @@ BEGIN
     USING T_ProjectDelete tpd
     WHERE up.ProjectIdn = tpd.ProjectIdn;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.p_step(p_RunLogIdn, v_Rc, 'DELETE stp.U_Project');
+    CALL core.P_Step(p_RunLogIdn, v_Rc, 'DELETE stp.U_Project');
 
     -- Return result
     p_OutputJson := jsonb_build_object(
@@ -281,15 +284,15 @@ BEGIN
 END;
 $BODY$;
 
-CALL core.p_db_api (
+CALL core.P_DbApi (
     '{
-        "db_api_name": "register_db_api",	
+        "db_api_name": "RegisterDbApi",	
         "request": {
             "records": [
                 {
-                    "db_api_name": "get_project",
+                    "db_api_name": "GetProject",
                     "schema_name": "stp",
-                    "handler_name": "p_get_project",
+                    "handler_name": "P_GetProject",
                     "property_list": {
                         "description": "Retrieves project details by project ID",
                         "version": "1.0",
@@ -297,9 +300,9 @@ CALL core.p_db_api (
                     }
                 },
                 {
-                    "db_api_name": "search_project",
+                    "db_api_name": "SearchProject",
                     "schema_name": "stp",
-                    "handler_name": "p_search_project",
+                    "handler_name": "P_SearchProject",
                     "property_list": {
                         "description": "Searches projects by name or ID pattern",
                         "version": "1.0",
@@ -307,9 +310,9 @@ CALL core.p_db_api (
                     }
                 },
                 {
-                    "db_api_name": "save_project",
+                    "db_api_name": "SaveProject",
                     "schema_name": "stp",
-                    "handler_name": "p_save_project",
+                    "handler_name": "P_SaveProject",
                     "property_list": {
                         "description": "Saves a new project or updates an existing one",
                         "version": "1.0",
@@ -317,9 +320,9 @@ CALL core.p_db_api (
                     }
                 },
                 {
-                    "db_api_name": "delete_project",
+                    "db_api_name": "DeleteProject",
                     "schema_name": "stp",
-                    "handler_name": "p_delete_project",
+                    "handler_name": "P_DeleteProject",
                     "property_list": {
                         "description": "Deletes a project by Idn",
                         "version": "1.0",
@@ -333,12 +336,19 @@ CALL core.p_db_api (
 );
 
 -- End of 1_project.sql
-/*
---truncate table U_RunLog RESTART IDENTITY;
---truncate table U_RunLogStep RESTART IDENTITY;
-CALL core.p_db_api (
+select * from stp.U_Project;
+CALL core.P_DbApi (
     '{
-		"db_api_name": "get_project",	
+		"db_api_name": "GetProject",	
+		"request": {
+			  "project_id": "PROJ001"
+    	}
+	}'::jsonb,
+    NULL
+    );
+CALL core.P_DbApi (
+    '{
+		"db_api_name": "SearchProject",	
 		"request": {
 			  "project_pattern": null
     	}
@@ -346,13 +356,13 @@ CALL core.p_db_api (
     NULL
     );
 
-delete from stp.U_Project where ProjectId in ('PROJ001','PROJ002');
 -- Insert new projects (ProjectIdn is null or not provided)
-CALL core.p_db_api(
+CALL core.P_DbApi(
     '{
-		"db_api_name": "save_project",
+		"db_api_name": "SaveProject",
         "request": [
             {
+                "project_idn": "6",
                 "project_id": "PROJ001",
                 "project_name": "Forest Restoration Alpha",
                 "tree_cnt_pledged": 1000,
@@ -361,8 +371,9 @@ CALL core.p_db_api(
                 "longitude": -74.0060
             },
             {
+                "project_idn": "7",
                 "project_id": "PROJ002",
-                "project_name": "Coastal Mangrove Initiative",
+                "project_name": "Coastal Mangrove Initiative-edit",
                 "tree_cnt_pledged": 2000,
                 "tree_cnt_planted": 750,
                 "latitude": 25.7617,
@@ -372,7 +383,22 @@ CALL core.p_db_api(
     }'::jsonb,
     NULL
 );
+
+-- Insert new projects (ProjectIdn is null or not provided)
+CALL core.P_DbApi(
+    '{
+		"db_api_name": "DeleteProject",
+        "request": [
+            {
+                "project_idn": "6"
+            },
+            {
+                "project_idn": "7"
+            }
+        ]
+    }'::jsonb,
+    NULL
+);
 select * from Stp.U_Project;
-select * from core.V_RL ORDER BY RunLogIdn DESC LIMIT 1;
+select * from core.V_RL ORDER BY RunLogIdn DESC;
 select * from core.V_RLS WHERE RunLogIdn=(select MAX(RunLogIdn) from core.U_RunLog) order by Idn;
-*/
