@@ -40,9 +40,9 @@ BEGIN
         -- Photo info (U_TreePhoto columns)
         PhotoLat        FLOAT,
         PhotoLng        FLOAT,
-        PhotoTs         TIMESTAMP,
+        PhotoTs         TIMESTAMPTZ,
         PhotoPropertyList JSONB,
-        UploadTs        TIMESTAMP
+        UploadTs        TIMESTAMPTZ
     ) ON COMMIT DROP;
 
     -- Parse input JSON - map to respective table columns
@@ -61,10 +61,10 @@ BEGIN
         -- U_TreePhoto columns
         NULLIF(T->>'photo_latitude', '')::FLOAT,
         NULLIF(T->>'photo_longitude', '')::FLOAT,
-        NULLIF(T->>'photo_ts', '')::TIMESTAMP,
+        COALESCE(NULLIF(T->>'photo_ts', '')::TIMESTAMPTZ, P_AnchorTs),
         COALESCE(T->'photo_property_list', '{}'::jsonb),
         -- Upload timestamp (primary key for U_TreePhoto)
-        COALESCE(NULLIF(T->>'upload_ts', '')::TIMESTAMP, P_AnchorTs)
+        COALESCE(NULLIF(T->>'upload_ts', '')::TIMESTAMPTZ, P_AnchorTs)
     FROM jsonb_array_elements(p_InputJson) AS T;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
     CALL core.P_Step(p_RunLogIdn, v_Rc, 'INSERT T_PhotoUpload');
