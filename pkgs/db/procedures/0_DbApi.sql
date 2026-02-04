@@ -448,6 +448,16 @@ BEGIN
 END;
 $BODY$;
 
+TRUNCATE TABLE core.U_DbApi;
+DELETE from core.U_DbApi WHERE DbApiName = 'RegisterDbApi';
+DELETE from core.U_DbApi WHERE DbApiName = 'UnregisterDbApi';
+
+INSERT INTO core.U_DbApi (DbApiName, SchemaName, HandlerName, PropertyList, UserIdn, Ts)
+VALUES ('RegisterDbApi', 'core', 'P_RegisterDbApi', '{}', 1, now());
+
+INSERT INTO core.U_DbApi (DbApiName, SchemaName, HandlerName, PropertyList, UserIdn, Ts)
+VALUES ('UnregisterDbApi', 'core', 'P_UnregisterDbApi', '{}', 1, now());
+
 /*
 -- Example usage:
 
@@ -482,16 +492,6 @@ CALL core.P_SetControl(
     '{"idn": 0, "updated_ts": "2026-01-24T12:00:00Z"}'::jsonb,
     1
 );
-
-TRUNCATE TABLE core.U_DbApi;
-DELETE from core.U_DbApi WHERE DbApiName = 'RegisterDbApi';
-DELETE from core.U_DbApi WHERE DbApiName = 'UnregisterDbApi';
-
-INSERT INTO core.U_DbApi (DbApiName, SchemaName, HandlerName, PropertyList, UserIdn, Ts)
-VALUES ('RegisterDbApi', 'core', 'P_RegisterDbApi', '{}', 1, now());
-
-INSERT INTO core.U_DbApi (DbApiName, SchemaName, HandlerName, PropertyList, UserIdn, Ts)
-VALUES ('UnregisterDbApi', 'core', 'P_UnregisterDbApi', '{}', 1, now());
 
 CALL core.P_DbApi (
     '{
