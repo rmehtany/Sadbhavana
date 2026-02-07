@@ -458,6 +458,27 @@ VALUES ('RegisterDbApi', 'core', 'P_RegisterDbApi', '{}', 1, now());
 INSERT INTO core.U_DbApi (DbApiName, SchemaName, HandlerName, PropertyList, UserIdn, Ts)
 VALUES ('UnregisterDbApi', 'core', 'P_UnregisterDbApi', '{}', 1, now());
 
+CALL core.P_DbApi (
+    '{
+        "db_api_name": "RegisterDbApi",
+        "request": {
+            "records": [
+                {
+                    "db_api_name": "SampleDbApi",
+                    "schema_name": "core",
+                    "handler_name": "P_SampleDbApi",
+                    "property_list": {
+                        "description": "sample DbApi for testing",
+                        "version": "1.0",
+                        "permissions": ["read"]
+                    }
+                }
+            ]
+        }
+    }'::jsonb,
+    null
+);
+
 /*
 -- Example usage:
 
@@ -500,27 +521,6 @@ CALL core.P_DbApi (
             "records": [
                 {
                     "db_api_name": "SampleDbApi"
-                }
-            ]
-        }
-    }'::jsonb,
-    null
-);
-
-CALL core.P_DbApi (
-    '{
-        "db_api_name": "RegisterDbApi",
-        "request": {
-            "records": [
-                {
-                    "db_api_name": "SampleDbApi",
-                    "schema_name": "core",
-                    "handler_name": "P_SampleDbApi",
-                    "property_list": {
-                        "description": "sample DbApi for testing",
-                        "version": "1.0",
-                        "permissions": ["read"]
-                    }
                 }
             ]
         }
