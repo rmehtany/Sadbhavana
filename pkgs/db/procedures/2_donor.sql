@@ -121,13 +121,13 @@ BEGIN
         RAISE EXCEPTION 'Duplicate MobileNumber(s) already exist: %. MobileNumber must be unique.', v_DuplicateMobileNumbers;
     END IF;
 
-    IF EXISTS
-        (SELECT 1 FROM T_Donor 
-        WHERE EmailAddr IS NOT NULL 
-        AND NOT core.F_ValidateEmail(EmailAddr))
-    THEN
-        RAISE EXCEPTION 'Invalid email address format detected';
-    END IF;
+--    IF EXISTS
+--        (SELECT 1 FROM T_Donor 
+--        WHERE EmailAddr IS NOT NULL 
+--        AND NOT core.F_ValidateEmail(EmailAddr))
+--    THEN
+--        RAISE EXCEPTION 'Invalid email address format detected';
+--    END IF;
 
     -- Update existing donors
     UPDATE stp.U_Donor ud
@@ -184,7 +184,7 @@ BEGIN
 END;
 $BODY$;
 
--- DeleteDonor - Delete donors with validation
+-- DeleteDonor - Delete donors with validation and optional cascade
 CREATE OR REPLACE PROCEDURE stp.P_DeleteDonor(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
@@ -198,16 +198,26 @@ DECLARE
     v_Rc INTEGER;
     v_DonorNames TEXT;
     v_DeletedDonorIdns TEXT;
+    v_Cascade BOOLEAN;
+    v_PhotosDeleted INT := 0;
+    v_FilesDeleted INT := 0;
+    v_TreesDeleted INT := 0;
+    v_PledgesDeleted INT := 0;
+    v_SendLogsDeleted INT := 0;
 BEGIN
+    -- Get cascade flag (default false)
+    v_Cascade := COALESCE((p_InputJson->>'cascade')::BOOLEAN, false);
+    CALL core.P_Step(p_RunLogIdn, NULL, 'Cascade: ' || v_Cascade);
+
     -- Create temp table for delete requests
     CREATE TEMP TABLE T_DonorDelete (
         DonorIdn INT
     ) ON COMMIT DROP;
 
-    -- Parse input JSON
+    -- Parse input JSON - expect {"donors": [{"donor_idn": 1}]}
     INSERT INTO T_DonorDelete (DonorIdn)
     SELECT (T->>'donor_idn')::INT
-    FROM jsonb_array_elements(p_InputJson) AS T
+    FROM jsonb_array_elements(p_InputJson->'donors') AS T
     WHERE T->>'donor_idn' IS NOT NULL;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
     CALL core.P_Step(p_RunLogIdn, v_Rc, 'INSERT T_DonorDelete');
@@ -216,21 +226,93 @@ BEGIN
         RAISE EXCEPTION 'No valid donor_idn values provided for deletion';
     END IF;
 
-    -- Check for donors with existing pledges
-    SELECT string_agg(DISTINCT tdd.DonorIdn::VARCHAR,',')
-    INTO v_DonorNames
-    FROM T_DonorDelete tdd
-    	JOIN stp.U_Pledge up
-     	   ON tdd.DonorIdn=up.DonorIdn;
+    -- Check for donors with existing pledges (unless cascade)
+    IF NOT v_Cascade THEN
+        SELECT string_agg(DISTINCT ud.DonorName, ', ')
+        INTO v_DonorNames
+        FROM T_DonorDelete tdd
+            JOIN stp.U_Donor ud ON tdd.DonorIdn = ud.DonorIdn
+            JOIN stp.U_Pledge up ON tdd.DonorIdn = up.DonorIdn;
 
-    IF v_DonorNames IS NOT NULL THEN
-        RAISE EXCEPTION 'Cannot delete donor(s) with existing pledges: %', v_DonorNames;
+        IF v_DonorNames IS NOT NULL THEN
+            RAISE EXCEPTION 'Cannot delete donor(s) with existing pledges: %. Use cascade=true to delete donors and all related data.', v_DonorNames;
+        END IF;
+    ELSE
+        -- Cascade delete: remove all related data in correct order
+        
+        -- 1. Delete donor send logs for trees associated with this donor's pledges
+        DELETE FROM stp.U_DonorSendLog dsl
+        USING T_DonorDelete tdd
+            JOIN stp.U_Pledge p ON tdd.DonorIdn = p.DonorIdn
+            JOIN stp.U_Tree t ON p.PledgeIdn = t.PledgeIdn
+        WHERE dsl.TreeIdn = t.TreeIdn;
+        GET DIAGNOSTICS v_SendLogsDeleted = ROW_COUNT;
+        CALL core.P_Step(p_RunLogIdn, v_SendLogsDeleted, 'DELETE stp.U_DonorSendLog (cascade)');
+
+        -- 2. Delete tree photos for trees associated with this donor's pledges
+        DELETE FROM stp.U_TreePhoto tp
+        USING T_DonorDelete tdd
+            JOIN stp.U_Pledge p ON tdd.DonorIdn = p.DonorIdn
+            JOIN stp.U_Tree t ON p.PledgeIdn = t.PledgeIdn
+        WHERE tp.TreeIdn = t.TreeIdn;
+        GET DIAGNOSTICS v_PhotosDeleted = ROW_COUNT;
+        CALL core.P_Step(p_RunLogIdn, v_PhotosDeleted, 'DELETE stp.U_TreePhoto (cascade)');
+
+        -- 3. Delete files associated with tree photos (if not referenced elsewhere)
+        DELETE FROM stp.U_File f
+        WHERE f.FileIdn IN (
+            SELECT DISTINCT tp.FileIdn
+            FROM T_DonorDelete tdd
+                JOIN stp.U_Pledge p ON tdd.DonorIdn = p.DonorIdn
+                JOIN stp.U_Tree t ON p.PledgeIdn = t.PledgeIdn
+                JOIN stp.U_TreePhoto tp ON t.TreeIdn = tp.TreeIdn
+        )
+        AND NOT EXISTS (
+            SELECT 1 FROM stp.U_TreePhoto tp2
+            WHERE tp2.FileIdn = f.FileIdn
+        );
+        GET DIAGNOSTICS v_FilesDeleted = ROW_COUNT;
+        CALL core.P_Step(p_RunLogIdn, v_FilesDeleted, 'DELETE stp.U_File (cascade)');
+
+        -- 4. Delete trees for pledges associated with this donor
+        DELETE FROM stp.U_Tree t
+        USING T_DonorDelete tdd
+            JOIN stp.U_Pledge p ON tdd.DonorIdn = p.DonorIdn
+        WHERE t.PledgeIdn = p.PledgeIdn;
+        GET DIAGNOSTICS v_TreesDeleted = ROW_COUNT;
+        CALL core.P_Step(p_RunLogIdn, v_TreesDeleted, 'DELETE stp.U_Tree (cascade)');
+
+        -- 5. Delete pledges for this donor
+        DELETE FROM stp.U_Pledge p
+        USING T_DonorDelete tdd
+        WHERE p.DonorIdn = tdd.DonorIdn;
+        GET DIAGNOSTICS v_PledgesDeleted = ROW_COUNT;
+        CALL core.P_Step(p_RunLogIdn, v_PledgesDeleted, 'DELETE stp.U_Pledge (cascade)');
     END IF;
 
     -- Capture DonorIdns being deleted
     SELECT string_agg(DonorIdn::TEXT, ',')
     INTO v_DeletedDonorIdns
     FROM T_DonorDelete;
+
+    -- Return deleted donors info
+    SELECT COALESCE(
+        jsonb_agg(
+            jsonb_build_object(
+                'donor_idn', ud.DonorIdn,
+                'donor_name', ud.DonorName,
+                'mobile_number', ud.MobileNumber,
+                'city', ud.City,
+                'email_addr', ud.EmailAddr,
+                'country', ud.Country,
+                'birth_dt', ud.BirthDt,
+                'property_list', ud.PropertyList
+            ) ORDER BY DonorName
+        ), '[]'::jsonb
+    )
+    INTO p_OutputJson
+    FROM stp.U_Donor ud
+    WHERE ud.DonorIdn IN (SELECT DonorIdn FROM T_DonorDelete);
 
     -- Delete donors
     DELETE FROM stp.U_Donor ud
@@ -239,11 +321,20 @@ BEGIN
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
     CALL core.P_Step(p_RunLogIdn, v_Rc, 'DELETE stp.U_Donor');
 
-    -- Return result
-    p_OutputJson := jsonb_build_object(
-        'deleted_count', v_Rc,
-        'deleted_donor_idns', COALESCE(v_DeletedDonorIdns, '')
-    );
+    -- Add cascade deletion summary to output
+    IF v_Cascade THEN
+        p_OutputJson := p_OutputJson || jsonb_build_object(
+            'cascade', true,
+            'deleted_counts', jsonb_build_object(
+                'donors', v_Rc,
+                'pledges', v_PledgesDeleted,
+                'trees', v_TreesDeleted,
+                'photos', v_PhotosDeleted,
+                'files', v_FilesDeleted,
+                'send_logs', v_SendLogsDeleted
+            )
+        );
+    END IF;
 END;
 $BODY$;
 
@@ -287,7 +378,7 @@ CALL core.P_DbApi (
     }'::jsonb,
     null
 );
-
+/*
 -- End of 2_donor.sql
 select * from stp.U_Donor;
 
@@ -330,6 +421,7 @@ CALL core.P_DbApi(
         "db_api_name": "SaveDonor",
         "request": [
             {
+                "donor_idn": 1,
                 "donor_name": "Rajesh Kumar Sharma",
                 "mobile_number": "+91-9876543210",
                 "city": "Mumbai",
@@ -401,15 +493,18 @@ CALL core.P_DbApi(
     NULL
 );
 
--- Example 7: Delete single donor
+-- Example 7: Delete single donor without cascade
 CALL core.P_DbApi(
     '{
-        "db_api_name": "DeleteDonor",
-        "request": [
-            {
-                "donor_idn": "2"
-            }
-        ]
+		"db_api_name": "DeleteDonor",
+        "request": {
+            "cascade": false,
+            "donors": [
+                {
+                    "donor_idn": 1
+                }
+            ]
+        }
     }'::jsonb,
     NULL
 );
@@ -417,19 +512,41 @@ CALL core.P_DbApi(
 -- Example 8: Delete multiple donors
 CALL core.P_DbApi(
     '{
-        "db_api_name": "DeleteDonor",
-        "request": [
-            {
-                "donor_idn": "3"
-            },
-            {
-                "donor_idn": "4"
-            }
-        ]
+		"db_api_name": "DeleteDonor",
+        "request": {
+            "cascade": false,
+            "donors": [
+                {
+                    "donor_idn": 9
+                },
+                {
+                    "donor_idn": 10
+                }
+            ]
+        }
+    }'::jsonb,
+    NULL
+);
+
+-- Example 9: Cascade delete donor with all related data
+-- This deletes the donor AND all related pledges, trees, photos, and send logs
+CALL core.P_DbApi(
+    '{
+		"db_api_name": "DeleteDonor",
+        "request": {
+            "cascade": true,
+            "donors": [
+                {
+                    "donor_idn": 1
+                }
+            ]
+        }
     }'::jsonb,
     NULL
 );
 
 select * from stp.U_Donor;
+select * from stp.u_pledge where DonorIdn=1;
 select * from core.V_RL ORDER BY RunLogIdn DESC;
 select * from core.V_RLS WHERE RunLogIdn=(select MAX(RunLogIdn) from core.U_RunLog) order by Idn;
+*/

@@ -85,8 +85,8 @@ BEGIN
     -- Create tree records for project pledges
     INSERT INTO stp.U_Tree (TreeId, PledgeIdn, CreditName, TreeTypeIdn, TreeLocation, PropertyList)
 	SELECT 
-        v_ProjectId || LPAD((v_MaxTreeNum + row_number() OVER (ORDER BY p.PledgeIdn, pc.key, gs.n))::TEXT, 6, '0'),
-		p.PledgeIdn,pc.key,NULL,NULL,'{}'::JSONB
+        v_ProjectId || LPAD((v_MaxTreeNum + row_number() OVER (ORDER BY t.PledgeIdn, pc.key, gs.n))::TEXT, 6, '0'),
+		t.PledgeIdn,pc.key,NULL,NULL,'{}'::JSONB
 	FROM 
 		(SELECT p.PledgeIdn,p.DonorIdn,p.TreeCntPledged,p.PledgeCredit
 	    FROM stp.U_Pledge p
@@ -427,7 +427,7 @@ CALL core.P_DbApi (
     }'::jsonb,
     null
 );
-
+/*
 -- End of 4_tree.sql
 select * from stp.U_Tree;
 
@@ -612,3 +612,4 @@ CALL core.P_DbApi(
 select * from stp.U_Tree;
 select * from core.V_RL ORDER BY RunLogIdn DESC;
 select * from core.V_RLS WHERE RunLogIdn=(select MAX(RunLogIdn) from core.U_RunLog) order by Idn;
+*/

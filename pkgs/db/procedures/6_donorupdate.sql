@@ -119,6 +119,7 @@ BEGIN
                 'photo_ts', tp.PhotoTs,
                 'photo_location_latitude', ST_Y(tp.PhotoLocation::geometry)::FLOAT,
                 'photo_location_longitude', ST_X(tp.PhotoLocation::geometry)::FLOAT,
+                'file_store_id', f.FileStoreId,
                 'file_name', f.FileName,
                 'file_path', f.FilePath,
                 'file_type', f.FileType
@@ -269,11 +270,163 @@ END;
 $BODY$;
 
 -- =====================================================================================
--- Usage Examples
+-- Service Registration
+-- =====================================================================================
+
+CALL core.P_DbApi (
+    '{
+        "db_api_name": "RegisterDbApi",	
+        "request": {
+            "records": [
+                {
+                    "db_api_name": "GetDonorUpdate",
+                    "schema_name": "stp",
+                    "handler_name": "P_GetDonorUpdate",
+                    "property_list": {
+                        "description": "Retrieve the next batch of pending donor photo notifications",
+                        "version": "1.0",
+                        "permissions": ["read"]
+                    }
+                },
+                {
+                    "db_api_name": "PostDonorUpdate",
+                    "schema_name": "stp",
+                    "handler_name": "P_PostDonorUpdate",
+                    "property_list": {
+                        "description": "Mark donor notifications as sent/failed and update processing high water mark",
+                        "version": "1.0",
+                        "permissions": ["write"]
+                    }
+                }
+            ]
+        }
+    }'::jsonb,
+    null
+);
+
+-- End of 6_donorupdate.sql
+
+-- =====================================================================================
+-- Test Data Setup & Usage Examples
 -- =====================================================================================
 /*
 
+-- =====================================================================================
+-- SETUP: Create Complete Test Data Chain
+-- =====================================================================================
+-- This section creates all prerequisite data needed to test the donor update workflow.
+-- Run these commands in order to set up a realistic test environment.
+
+-- Step 1: Create a test project
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "SaveProject",
+        "request": [{
+            "project_id": "TESTDONOR",
+            "project_name": "Test Donor Notification Project",
+            "latitude": 19.0760,
+            "longitude": 72.8777
+        }]
+    }'::jsonb,
+    NULL
+);
+
+-- Step 2: Create a test donor (small pledge to trigger notifications)
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "SaveDonor",
+        "request": [{
+            "donor_name": "Test Donor for Notifications",
+            "mobile_number": "+91-9999888877",
+            "city": "Mumbai",
+            "country": "India",
+            "email_addr": "testdonor@example.com"
+        }]
+    }'::jsonb,
+    NULL
+);
+
+-- Step 3: Create a pledge (3 trees - qualifies for notifications per filter)
+-- Note: Get project_idn and donor_idn from previous calls or query the tables
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "SavePledge",
+        "request": [{
+            "project_idn": 1,
+            "donor_idn": 1,
+            "pledge_credit": {
+                "Test Donor for Notifications": 3
+            }
+        }]
+    }'::jsonb,
+    NULL
+);
+
+-- Step 4: Create trees for the pledge
+-- Note: Get project_idn from Step 1
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "CreateTreeBulk",
+        "request": {
+            "project_idn": 1,
+            "create_type": "Missing"
+        }
+    }'::jsonb,
+    NULL
+);
+
+-- Step 5: Create a test provider for file storage
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "SaveProvider",
+        "request": [{
+            "provider_name": "TestStorage",
+            "auth_type": "none"
+        }]
+    }'::jsonb,
+    NULL
+);
+
+-- Step 6: Upload tree photos (this automatically creates pending donor notifications)
+-- Note: Use actual tree_id values from Step 4 (e.g., TESTDONOR000001, TESTDONOR000002)
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "UploadTreePhoto",
+        "request": [
+            {
+                "tree_id": "TESTDONOR000001",
+                "provider_name": "TestStorage",
+                "file_store_id": "test_photo_001",
+                "file_path": "/test/photos",
+                "file_name": "tree_001.jpg",
+                "file_type": "image/jpeg",
+                "photo_latitude": 19.0760,
+                "photo_longitude": 72.8777
+            },
+            {
+                "tree_id": "TESTDONOR000002",
+                "provider_name": "TestStorage",
+                "file_store_id": "test_photo_002",
+                "file_path": "/test/photos",
+                "file_name": "tree_002.jpg",
+                "file_type": "image/jpeg",
+                "photo_latitude": 19.0761,
+                "photo_longitude": 72.8778
+            }
+        ]
+    }'::jsonb,
+    NULL
+);
+
+-- Verify test data was created
+SELECT * FROM stp.U_DonorSendLog WHERE SendStatus = 'pending';
+
+-- =====================================================================================
+-- WORKFLOW EXAMPLES: Donor Notification Cycle
+-- =====================================================================================
+
 -- Example 1: Get next batch of pending donor updates (default batch size of 100)
+-- This retrieves all information needed to send notifications to donors
 CALL core.P_DbApi(
     '{
         "db_api_name": "GetDonorUpdate",
@@ -282,38 +435,148 @@ CALL core.P_DbApi(
     NULL
 );
 
--- Example 2: Get specific batch size
+-- Example 2: Get specific batch size (useful for rate limiting)
 CALL core.P_DbApi(
     '{
         "db_api_name": "GetDonorUpdate",
         "request": {
-            "batch_size": 50
+            "batch_size": 10
         }
     }'::jsonb,
     NULL
 );
 
--- Example 3: Mark notifications as sent
+-- Example 3: Mark notifications as sent (use actual idn values from Example 1 output)
+-- After successfully sending emails/SMS to donors, update their status
 CALL core.P_DbApi(
     '{
         "db_api_name": "PostDonorUpdate",
         "request": [
-            {"idn": 123, "send_status": "sent"},
-            {"idn": 124, "send_status": "sent"},
-            {"idn": 125, "send_status": "failed"}
+            {"idn": 1, "send_status": "sent"},
+            {"idn": 2, "send_status": "sent"}
         ]
     }'::jsonb,
     NULL
 );
 
--- Check current high water mark
-SELECT core.P_GetControl('DonorUpdHwm');
+-- Example 4: Mark some notifications as failed (for retry later)
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "PostDonorUpdate",
+        "request": [
+            {"idn": 3, "send_status": "failed"}
+        ]
+    }'::jsonb,
+    NULL
+);
+
+-- Example 5: Check current high water mark
+-- Shows the last processed Idn, useful for monitoring progress
+SELECT core.F_GetControl('DonorUpdHwm');
+
+-- Example 6: Verify the queue is empty after processing
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "GetDonorUpdate",
+        "request": {}
+    }'::jsonb,
+    NULL
+);
+
+-- Example 7: Check send log status
+SELECT Idn, TreeIdn, SendStatus, SendTs, UploadTs 
+FROM stp.U_DonorSendLog 
+ORDER BY Idn;
+
+-- =====================================================================================
+-- MAINTENANCE & RECOVERY
+-- =====================================================================================
 
 -- Reset high water mark (for testing/recovery)
+-- This allows reprocessing all notifications from the beginning
 CALL core.P_SetControl(
     'DonorUpdHwm',
     '{"idn": 0}'::jsonb,
     1
 );
+
+-- Reset all notifications to pending (for testing)
+UPDATE stp.U_DonorSendLog 
+SET SendStatus = 'pending', SendTs = NULL;
+
+-- =====================================================================================
+-- CLEANUP: Remove Test Data
+-- =====================================================================================
+-- Run these commands to clean up the test data created above
+
+-- Option 1: Simple cascade delete (RECOMMENDED)
+-- This single command deletes the project and ALL related data automatically
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "DeleteProject",
+        "request": {
+            "cascade": true,
+            "projects": [
+                {
+                    "project_idn": 1
+                }
+            ]
+        }
+    }'::jsonb,
+    NULL
+);
+
+-- Delete test provider (not cascade-deleted with project)
+CALL core.P_DbApi(
+    '{
+        "db_api_name": "DeleteProvider",
+        "request": [{
+            "provider_idn": 1
+        }]
+    }'::jsonb,
+    NULL
+);
+
+-- Verify cleanup
+SELECT COUNT(*) as donor_send_logs FROM stp.U_DonorSendLog;
+SELECT COUNT(*) as tree_photos FROM stp.U_TreePhoto;
+SELECT COUNT(*) as trees FROM stp.U_Tree WHERE TreeId LIKE 'TESTDONOR%';
+SELECT COUNT(*) as pledges FROM stp.U_Pledge;
+SELECT COUNT(*) as projects FROM stp.U_Project WHERE ProjectId = 'TESTDONOR';
+
+-- Option 2: Manual cleanup (if you want more control)
+/*
+DELETE FROM stp.U_DonorSendLog 
+WHERE TreeIdn IN (
+    SELECT TreeIdn FROM stp.U_Tree t
+    JOIN stp.U_Pledge p ON t.PledgeIdn = p.PledgeIdn
+    JOIN stp.U_Project pr ON p.ProjectIdn = pr.ProjectIdn
+    WHERE pr.ProjectId = 'TESTDONOR'
+);
+
+DELETE FROM stp.U_TreePhoto 
+WHERE TreeIdn IN (
+    SELECT TreeIdn FROM stp.U_Tree t
+    JOIN stp.U_Pledge p ON t.PledgeIdn = p.PledgeIdn
+    JOIN stp.U_Project pr ON p.ProjectIdn = pr.ProjectIdn
+    WHERE pr.ProjectId = 'TESTDONOR'
+);
+
+DELETE FROM stp.U_File 
+WHERE ProviderIdn = (SELECT ProviderIdn FROM stp.U_Provider WHERE ProviderName = 'TestStorage');
+
+DELETE FROM stp.U_Tree
+WHERE PledgeIdn IN (
+    SELECT PledgeIdn FROM stp.U_Pledge p
+    JOIN stp.U_Project pr ON p.ProjectIdn = pr.ProjectIdn
+    WHERE pr.ProjectId = 'TESTDONOR'
+);
+
+DELETE FROM stp.U_Pledge
+WHERE ProjectIdn = (SELECT ProjectIdn FROM stp.U_Project WHERE ProjectId = 'TESTDONOR');
+
+DELETE FROM stp.U_Project WHERE ProjectId = 'TESTDONOR';
+*/
+
 
 */

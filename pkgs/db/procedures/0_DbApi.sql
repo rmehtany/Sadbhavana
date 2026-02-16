@@ -193,7 +193,7 @@ BEGIN
     SELECT lower(SchemaName), lower(HandlerName)
     INTO v_SchemaName, v_HandlerName
     FROM core.U_DbApi
-    WHERE DbApiName = v_DbApiName;
+    WHERE lower(DbApiName) = lower(v_DbApiName);
     IF v_SchemaName IS NULL OR v_HandlerName IS NULL THEN
         RAISE EXCEPTION 'DbApiName % not registered', v_DbApiName;
     END IF;
@@ -448,7 +448,6 @@ BEGIN
 END;
 $BODY$;
 
-TRUNCATE TABLE core.U_DbApi;
 DELETE from core.U_DbApi WHERE DbApiName = 'RegisterDbApi';
 DELETE from core.U_DbApi WHERE DbApiName = 'UnregisterDbApi';
 
@@ -460,7 +459,7 @@ VALUES ('UnregisterDbApi', 'core', 'P_UnregisterDbApi', '{}', 1, now());
 
 CALL core.P_DbApi (
     '{
-        "db_api_name": "RegisterDbApi",
+        "db_api_name": "registerDbApi",
         "request": {
             "records": [
                 {

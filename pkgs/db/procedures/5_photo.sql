@@ -223,8 +223,13 @@ BEGIN
 
     -- Create donor send log entries for new photos
     INSERT INTO stp.U_DonorSendLog (TreeIdn, UploadTs, SendStatus)
-    SELECT TreeIdn, UploadTs, 'pending'
-    FROM T_PhotoUpload
+    SELECT tpu.TreeIdn, tpu.UploadTs, 'pending'
+    FROM T_PhotoUpload AS tpu
+        JOIN stp.U_Tree AS t 
+            ON tpu.TreeIdn = t.TreeIdn
+        JOIN stp.U_Pledge AS p 
+            ON t.PledgeIdn = p.PledgeIdn 
+            AND TreeCntPledged <= 3
     ON CONFLICT DO NOTHING;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
     CALL core.P_Step(p_RunLogIdn, v_Rc, 'INSERT stp.U_DonorSendLog');
@@ -327,7 +332,7 @@ CALL core.P_DbApi (
     }'::jsonb,
     null
 );
-
+/*
 -- End of 5_photo.sql
 select * from stp.U_TreePhoto;
 select * from stp.U_File;
@@ -454,3 +459,4 @@ select * from stp.U_File;
 select * from stp.U_DonorSendLog;
 select * from core.V_RL ORDER BY RunLogIdn DESC;
 select * from core.V_RLS WHERE RunLogIdn=(select MAX(RunLogIdn) from core.U_RunLog) order by Idn;
+*/

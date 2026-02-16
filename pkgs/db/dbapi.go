@@ -53,6 +53,12 @@ const (
 	dbApiStatusFailure dbApiStatus = "failure"
 )
 
+type MeterLogItem struct {
+	Step         string `json:"step" validate:"required"`
+	Milliseconds int    `json:"ms" validate:"required"`
+	RowCount     int    `json:"rc" validate:"required"`
+}
+
 func callDbApi[I any, O any](ctx context.Context, q *Queries, dbFunctionName string, input I) (O, error) {
 	type inputWrapper struct {
 		DbApiName string `json:"db_api_name" validate:"required"`
@@ -64,9 +70,10 @@ func callDbApi[I any, O any](ctx context.Context, q *Queries, dbFunctionName str
 		Request:   input,
 	}
 	type outputWrapper struct {
-		Status   dbApiStatus `json:"status" validate:"required,oneof=success failure"`
-		ErrorMsg string      `json:"error_msg,omitempty"`
-		Response O           `json:"response" validate:"required"`
+		Status   dbApiStatus    `json:"status" validate:"required,oneof=success failure"`
+		ErrorMsg string         `json:"error_msg,omitempty"`
+		Meter    []MeterLogItem `json:"meter,omitempty"`
+		Response O              `json:"response,omitempty"`
 	}
 	var output outputWrapper
 
@@ -80,13 +87,13 @@ func callDbApi[I any, O any](ctx context.Context, q *Queries, dbFunctionName str
 		return output.Response, fmt.Errorf("failed to call db function %s: %w", dbFunctionName, err)
 	}
 
+	if output.Status == dbApiStatusFailure {
+		return output.Response, fmt.Errorf("db function %s failed: %s", dbFunctionName, output.ErrorMsg)
+	}
+
 	err = utils.ValidateStruct(output)
 	if err != nil {
 		return output.Response, fmt.Errorf("failed to validate output for db function %s: %w", dbFunctionName, err)
-	}
-
-	if output.Status == dbApiStatusFailure {
-		return output.Response, fmt.Errorf("db function %s failed: %s", dbFunctionName, output.ErrorMsg)
 	}
 
 	return output.Response, nil

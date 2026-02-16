@@ -250,7 +250,7 @@ CALL core.P_DbApi (
     }'::jsonb,
     null
 );
-
+/*
 -- End of 7_provider.sql
 select * from stp.U_Provider;
 
@@ -409,3 +409,4 @@ CALL core.P_DbApi(
 select * from stp.U_Provider;
 select * from core.V_RL ORDER BY RunLogIdn DESC;
 select * from core.V_RLS WHERE RunLogIdn=(select MAX(RunLogIdn) from core.U_RunLog) order by Idn;
+*/

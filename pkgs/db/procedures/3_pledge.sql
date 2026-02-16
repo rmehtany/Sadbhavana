@@ -184,7 +184,7 @@ BEGIN
 END;
 $BODY$;
 
--- DeletePledge - Delete pledges with validation
+-- DeletePledge - Delete pledges with validation and optional cascade
 CREATE OR REPLACE PROCEDURE stp.P_DeletePledge(
     IN      P_AnchorTs      TIMESTAMPTZ,
     IN      P_UserIdn       INT,
@@ -196,19 +196,27 @@ LANGUAGE plpgsql
 AS $BODY$
 DECLARE
     v_Rc INTEGER;
-    v_CreateType VARCHAR(32);
+    v_PledgesWithTrees TEXT;
     v_DeletedPledgeIdns TEXT;
-    v_PledgesWithPhotos TEXT;
+    v_Cascade BOOLEAN;
+    v_PhotosDeleted INT := 0;
+    v_FilesDeleted INT := 0;
+    v_TreesDeleted INT := 0;
+    v_SendLogsDeleted INT := 0;
 BEGIN
+    -- Get cascade flag (default false)
+    v_Cascade := COALESCE((p_InputJson->>'cascade')::BOOLEAN, false);
+    CALL core.P_Step(p_RunLogIdn, NULL, 'Cascade: ' || v_Cascade);
+
     -- Create temp table for delete requests
     CREATE TEMP TABLE T_PledgeDelete (
         PledgeIdn INT
     ) ON COMMIT DROP;
 
-    -- Parse input JSON
+    -- Parse input JSON - expect {"pledges": [{"pledge_idn": 1}]}
     INSERT INTO T_PledgeDelete (PledgeIdn)
     SELECT (T->>'pledge_idn')::INT
-    FROM jsonb_array_elements(p_InputJson) AS T
+    FROM jsonb_array_elements(p_InputJson->'pledges') AS T
     WHERE T->>'pledge_idn' IS NOT NULL;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
     CALL core.P_Step(p_RunLogIdn, v_Rc, 'INSERT T_PledgeDelete');
@@ -217,10 +225,79 @@ BEGIN
         RAISE EXCEPTION 'No valid pledge_idn values provided for deletion';
     END IF;
 
+    -- Check for pledges with existing trees (unless cascade)
+    IF NOT v_Cascade THEN
+        SELECT string_agg(DISTINCT up.PledgeIdn::VARCHAR, ', ')
+        INTO v_PledgesWithTrees
+        FROM T_PledgeDelete tpd
+            JOIN stp.U_Tree ut ON tpd.PledgeIdn = ut.PledgeIdn;
+
+        IF v_PledgesWithTrees IS NOT NULL THEN
+            RAISE EXCEPTION 'Cannot delete pledge(s) with existing trees: %. Use cascade=true to delete pledges and all related data.', v_PledgesWithTrees;
+        END IF;
+    ELSE
+        -- Cascade delete: remove all related data in correct order
+        
+        -- 1. Delete donor send logs for trees associated with these pledges
+        DELETE FROM stp.U_DonorSendLog dsl
+        USING T_PledgeDelete tpd
+            JOIN stp.U_Tree t ON tpd.PledgeIdn = t.PledgeIdn
+        WHERE dsl.TreeIdn = t.TreeIdn;
+        GET DIAGNOSTICS v_SendLogsDeleted = ROW_COUNT;
+        CALL core.P_Step(p_RunLogIdn, v_SendLogsDeleted, 'DELETE stp.U_DonorSendLog (cascade)');
+
+        -- 2. Delete tree photos for trees associated with these pledges
+        DELETE FROM stp.U_TreePhoto tp
+        USING T_PledgeDelete tpd
+            JOIN stp.U_Tree t ON tpd.PledgeIdn = t.PledgeIdn
+        WHERE tp.TreeIdn = t.TreeIdn;
+        GET DIAGNOSTICS v_PhotosDeleted = ROW_COUNT;
+        CALL core.P_Step(p_RunLogIdn, v_PhotosDeleted, 'DELETE stp.U_TreePhoto (cascade)');
+
+        -- 3. Delete files associated with tree photos (if not referenced elsewhere)
+        DELETE FROM stp.U_File f
+        WHERE f.FileIdn IN (
+            SELECT DISTINCT tp.FileIdn
+            FROM T_PledgeDelete tpd
+                JOIN stp.U_Tree t ON tpd.PledgeIdn = t.PledgeIdn
+                JOIN stp.U_TreePhoto tp ON t.TreeIdn = tp.TreeIdn
+        )
+        AND NOT EXISTS (
+            SELECT 1 FROM stp.U_TreePhoto tp2
+            WHERE tp2.FileIdn = f.FileIdn
+        );
+        GET DIAGNOSTICS v_FilesDeleted = ROW_COUNT;
+        CALL core.P_Step(p_RunLogIdn, v_FilesDeleted, 'DELETE stp.U_File (cascade)');
+
+        -- 4. Delete trees for these pledges
+        DELETE FROM stp.U_Tree t
+        USING T_PledgeDelete tpd
+        WHERE t.PledgeIdn = tpd.PledgeIdn;
+        GET DIAGNOSTICS v_TreesDeleted = ROW_COUNT;
+        CALL core.P_Step(p_RunLogIdn, v_TreesDeleted, 'DELETE stp.U_Tree (cascade)');
+    END IF;
+
     -- Capture PledgeIdns being deleted
     SELECT string_agg(PledgeIdn::TEXT, ',')
     INTO v_DeletedPledgeIdns
     FROM T_PledgeDelete;
+
+    -- Return result
+    SELECT COALESCE(
+        jsonb_agg(
+            jsonb_build_object(
+                'pledge_idn', up.PledgeIdn,
+                'project_idn', up.ProjectIdn,
+                'donor_idn', up.DonorIdn,
+                'tree_cnt', up.TreeCnt,
+                'pledge_dt', up.PledgeDt,
+                'property_list', up.PropertyList
+            ) ORDER BY PledgeIdn
+        ), '[]'::jsonb
+    )
+    INTO p_OutputJson
+    FROM stp.U_Pledge up
+    WHERE up.PledgeIdn IN (SELECT PledgeIdn FROM T_PledgeDelete);
 
     -- Delete pledges
     DELETE FROM stp.U_Pledge up
@@ -229,12 +306,19 @@ BEGIN
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
     CALL core.P_Step(p_RunLogIdn, v_Rc, 'DELETE stp.U_Pledge');
 
-    -- Return result
-    p_OutputJson := jsonb_build_object(
-        'deleted_count', v_Rc,
-        'deleted_pledge_idns', COALESCE(v_DeletedPledgeIdns, '')
-    );
-    CALL core.P_Step(p_RunLogIdn, null, 'prepare DeletePledge json');
+    -- Add cascade deletion summary to output
+    IF v_Cascade THEN
+        p_OutputJson := p_OutputJson || jsonb_build_object(
+            'cascade', true,
+            'deleted_counts', jsonb_build_object(
+                'pledges', v_Rc,
+                'trees', v_TreesDeleted,
+                'photos', v_PhotosDeleted,
+                'files', v_FilesDeleted,
+                'send_logs', v_SendLogsDeleted
+            )
+        );
+    END IF;
 END;
 $BODY$;
 
@@ -279,7 +363,7 @@ CALL core.P_DbApi (
     }'::jsonb,
     null
 );
-
+/*
 -- End of 3_pledge.sql
 select * from stp.U_Pledge;
 
@@ -381,15 +465,18 @@ CALL core.P_DbApi(
     NULL
 );
 
--- Example 7: Delete single pledge
+-- Example 7: Delete single pledge without cascade
 CALL core.P_DbApi(
     '{
-        "db_api_name": "DeletePledge",
-        "request": [
-            {
-                "pledge_idn": "2"
-            }
-        ]
+		"db_api_name": "DeletePledge",
+        "request": {
+            "cascade": false,
+            "pledges": [
+                {
+                    "pledge_idn": 2
+                }
+            ]
+        }
     }'::jsonb,
     NULL
 );
@@ -397,15 +484,35 @@ CALL core.P_DbApi(
 -- Example 8: Delete multiple pledges
 CALL core.P_DbApi(
     '{
-        "db_api_name": "DeletePledge",
-        "request": [
-            {
-                "pledge_idn": "3"
-            },
-            {
-                "pledge_idn": "4"
-            }
-        ]
+		"db_api_name": "DeletePledge",
+        "request": {
+            "cascade": false,
+            "pledges": [
+                {
+                    "pledge_idn": 3
+                },
+                {
+                    "pledge_idn": 4
+                }
+            ]
+        }
+    }'::jsonb,
+    NULL
+);
+
+-- Example 9: Cascade delete pledge with all related data
+-- This deletes the pledge AND all related trees, photos, and send logs
+CALL core.P_DbApi(
+    '{
+		"db_api_name": "DeletePledge",
+        "request": {
+            "cascade": true,
+            "pledges": [
+                {
+                    "pledge_idn": 1
+                }
+            ]
+        }
     }'::jsonb,
     NULL
 );
@@ -413,3 +520,4 @@ CALL core.P_DbApi(
 select * from stp.U_Pledge;
 select * from core.V_RL ORDER BY RunLogIdn DESC;
 select * from core.V_RLS WHERE RunLogIdn=(select MAX(RunLogIdn) from core.U_RunLog) order by Idn;
+*/
