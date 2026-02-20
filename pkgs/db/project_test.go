@@ -2,6 +2,7 @@ package db
 
 import (
 	"sadbhavana/tree-project/pkgs/conf"
+	"strconv"
 	"testing"
 )
 
@@ -28,7 +29,7 @@ func TestDbApiGetProject_Integration(t *testing.T) {
 	}
 }
 
-func TestDbApiSaveProject_Integration(t *testing.T) {
+func TestDbApiProjectLifecycle_Integration(t *testing.T) {
 	ctx := t.Context()
 	conf.LoadEnvFromFile("../../.env.test")
 
@@ -37,61 +38,74 @@ func TestDbApiSaveProject_Integration(t *testing.T) {
 		t.Fatalf("failed to create queries: %v", err)
 	}
 
-	input := []SaveProjectInput{
+	// 1. Save - Create new projects
+	saveInput := []SaveProjectInput{
 		{
-			ProjectIdn:     6,
-			ProjectId:      "PROJ001",
-			ProjectName:    "Forest Restoration Alpha",
-			TreeCntPledged: 1000,
-			TreeCntPlanted: 500,
-			Latitude:       40.7128,
-			Longitude:      -74.0060,
+			ProjectId:      "TEST_PROJ_1",
+			ProjectName:    "Test Forest One",
+			TreeCntPledged: 100,
+			TreeCntPlanted: 0,
+			Latitude:       10.0,
+			Longitude:      20.0,
 		},
 		{
-			ProjectIdn:     7,
-			ProjectId:      "PROJ002",
-			ProjectName:    "Coastal Mangrove Initiative-edit",
-			TreeCntPledged: 2000,
-			TreeCntPlanted: 750,
-			Latitude:       25.7617,
-			Longitude:      -80.1918,
+			ProjectId:      "TEST_PROJ_2",
+			ProjectName:    "Test Forest Two",
+			TreeCntPledged: 200,
+			TreeCntPlanted: 50,
+			Latitude:       30.0,
+			Longitude:      40.0,
 		},
 	}
 
-	output, err := callDbApi[[]SaveProjectInput, []DbProject](ctx, q, "SaveProject", input)
+	savedProjects, err := callDbApi[[]SaveProjectInput, []DbProject](ctx, q, "SaveProject", saveInput)
 	if err != nil {
-		t.Fatalf("failed to call db api: %v", err)
+		t.Fatalf("failed to save projects: %v", err)
 	}
 
-	if len(output) >= 0 {
-		t.Logf("saved %d projects", len(output))
+	if len(savedProjects) != 2 {
+		t.Fatalf("expected 2 projects saved, got %d", len(savedProjects))
 	}
-}
 
-func TestDbApiDeleteProject_Integration(t *testing.T) {
-	ctx := t.Context()
-	conf.LoadEnvFromFile("../../.env.test")
+	// 2. Get - Verify created projects can be found
+	getInput := GetProjectInput{
+		ProjectPattern: "Test Forest",
+	}
 
-	q, err := NewQueries(ctx)
+	foundProjects, err := callDbApi[GetProjectInput, []DbProject](ctx, q, "GetProject", getInput)
 	if err != nil {
-		t.Fatalf("failed to create queries: %v", err)
+		t.Fatalf("failed to get projects: %v", err)
 	}
 
-	input := []DeleteProjectInput{
-		{
-			ProjectIdn: "6",
-		},
-		{
-			ProjectIdn: "7",
-		},
+	// Verify we found at least our 2 new projects
+	count := 0
+	for _, p := range foundProjects {
+		if p.ProjectId == "TEST_PROJ_1" || p.ProjectId == "TEST_PROJ_2" {
+			count++
+		}
+	}
+	if count < 2 {
+		t.Fatalf("expected to find at least 2 test projects, found %d", count)
 	}
 
-	output, err := callDbApi[[]DeleteProjectInput, []DbProject](ctx, q, "DeleteProject", input)
+	// 3. Delete - Clean up the created projects
+	deleteInput := DeleteProjectRequest{
+		Cascade:  false,
+		Projects: make([]DeleteProjectInput, len(savedProjects)),
+	}
+	for i, p := range savedProjects {
+		deleteInput.Projects[i] = DeleteProjectInput{
+			ProjectIdn: strconv.Itoa(p.ProjectIdn),
+		}
+	}
+
+	deletedProjects, err := DeleteProject(ctx, q, deleteInput)
 	if err != nil {
-		t.Fatalf("failed to call db api: %v", err)
+		t.Fatalf("failed to delete projects: %v", err)
 	}
 
-	if len(output) >= 0 {
-		t.Logf("deleted %d projects", len(output))
+	if len(deletedProjects) < 2 {
+		t.Fatalf("expected at least 2 projects deleted, got %d", len(deletedProjects))
 	}
+	t.Logf("lifecycle test passed: saved, found, and deleted %d projects", len(deletedProjects))
 }

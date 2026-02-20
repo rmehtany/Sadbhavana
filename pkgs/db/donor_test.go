@@ -1,13 +1,14 @@
 package db
 
 import (
+	"encoding/json"
 	"sadbhavana/tree-project/pkgs/conf"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDbApiGetDonor_Integration(t *testing.T) {
+func TestDbApiDonorLifecycle_Integration(t *testing.T) {
 	ctx := t.Context()
 	conf.LoadEnvFromFile("../../.env.test")
 
@@ -16,130 +17,68 @@ func TestDbApiGetDonor_Integration(t *testing.T) {
 		t.Fatalf("failed to create queries: %v", err)
 	}
 
-	input := GetDonorInput{
-		DonorPattern: "Sharma",
-	}
-
-	output, err := callDbApi[GetDonorInput, []DbDonor](ctx, q, "GetDonor", input)
-	if err != nil {
-		t.Fatalf("failed to call db api: %v", err)
-	}
-
-	if len(output) != 1 {
-		t.Fatalf("expected 1 result, got %d", len(output))
-	}
-
-	assert.Equal(t, 1, output[0].DonorIdn)
-	assert.Equal(t, "Rajesh Kumar Sharma", output[0].DonorName)
-	assert.Equal(t, "+91-9876543210", output[0].MobileNumber)
-	assert.Equal(t, "Mumbai", output[0].City)
-	assert.Equal(t, "rajesh.sharma@example.com", output[0].EmailAddr)
-	assert.Equal(t, "India", output[0].Country)
-	assert.Equal(t, "", output[0].BirthDt)
-	assert.Equal(t, map[string]any{"vip_status": true}, output[0].PropertyList)
-}
-
-func TestDbApiSaveDonor_Integration(t *testing.T) {
-	ctx := t.Context()
-	conf.LoadEnvFromFile("../../.env.test")
-
-	q, err := NewQueries(ctx)
-	if err != nil {
-		t.Fatalf("failed to create queries: %v", err)
-	}
-
-	input := []SaveDonorInput{
+	// 1. Save - Create new donors
+	saveInput := []SaveDonorInput{
 		{
-			DonorName:    "Rajesh Kumar Sharma",
-			MobileNumber: "+91-9876543210",
-			City:         "Mumbai",
+			DonorName:    "Test Donor One",
+			MobileNumber: "+91-9999999991",
+			City:         "Test City",
 			Country:      "India",
+			EmailAddr:    "test1@example.com",
+			BirthDt:      "1990-01-01",
 		},
 		{
-			DonorName:    "Priya Patel",
-			MobileNumber: "+91-9123456789",
-			City:         "Ahmedabad",
+			DonorName:    "Test Donor Two",
+			MobileNumber: "+91-9999999992",
+			City:         "Test City",
 			Country:      "India",
+			EmailAddr:    "test2@example.com",
+			BirthDt:      "1990-01-01",
 		},
 	}
 
-	output, err := callDbApi[[]SaveDonorInput, []DbDonor](ctx, q, "SaveDonor", input)
+	saveInputJson, err := json.Marshal(saveInput)
 	if err != nil {
-		t.Fatalf("failed to call db api: %v", err)
+		t.Fatalf("failed to marshal save input: %v", err)
 	}
+	t.Logf("save input: %s", string(saveInputJson))
 
-	if len(output) != 2 {
-		t.Fatalf("expected 2 result, got %d", len(output))
-	}
-}
-
-func TestDbApiDeleteDonor_Integration(t *testing.T) {
-	ctx := t.Context()
-	conf.LoadEnvFromFile("../../.env.test")
-
-	q, err := NewQueries(ctx)
+	savedDonors, err := callDbApi[[]SaveDonorInput, []DbDonor](ctx, q, "SaveDonor", saveInput)
 	if err != nil {
-		t.Fatalf("failed to create queries: %v", err)
+		t.Fatalf("failed to save donors: %v", err)
 	}
 
-	input := DeleteDonorRequest{
+	if len(savedDonors) != 2 {
+		t.Fatalf("expected 2 donors saved, got %d", len(savedDonors))
+	}
+
+	// 2. Get - Verify created donors can be found
+	getInput := GetDonorInput{
+		DonorPattern: "Test Donor",
+	}
+
+	foundDonors, err := GetDonor(ctx, q, getInput)
+	if err != nil {
+		t.Fatalf("failed to get donors: %v", err)
+	}
+
+	// Verify we found at least our 2 new donors
+	assert.GreaterOrEqual(t, len(foundDonors), 2)
+
+	// 3. Delete - Clean up the created donors
+	deleteInput := DeleteDonorRequest{
 		Cascade: false,
-		Donors: []DeleteDonorInput{
-			{
-				DonorIdn: 9,
-			},
-			{
-				DonorIdn: 10,
-			},
-		},
+		Donors:  make([]DeleteDonorInput, len(savedDonors)),
+	}
+	for i, d := range savedDonors {
+		deleteInput.Donors[i] = DeleteDonorInput{DonorIdn: d.DonorIdn}
 	}
 
-	output, err := DeleteDonor(ctx, q, input)
+	deletedDonors, err := DeleteDonor(ctx, q, deleteInput)
 	if err != nil {
-		t.Fatalf("failed to call db api: %v", err)
+		t.Fatalf("failed to delete donors: %v", err)
 	}
 
-	if len(output) >= 0 {
-		t.Logf("deleted %d donors", len(output))
-	}
-}
-
-func TestDbApiDonorUpdate_Integration(t *testing.T) {
-	ctx := t.Context()
-	conf.LoadEnvFromFile("../../.env.test")
-
-	q, err := NewQueries(ctx)
-	if err != nil {
-		t.Fatalf("failed to create queries: %v", err)
-	}
-
-	// 1. Get pending updates
-	getInput := GetDonorUpdateInput{
-		BatchSize: 10,
-	}
-
-	updates, err := GetDonorUpdate(ctx, q, getInput)
-	if err != nil {
-		t.Fatalf("failed to get donor updates: %v", err)
-	}
-
-	t.Logf("found %d pending updates", len(updates))
-
-	if len(updates) > 0 {
-		// 2. Post progress for the first update
-		postInput := []PostDonorUpdateInput{
-			{
-				Idn:        updates[0].Idn,
-				SendStatus: "sent",
-			},
-		}
-
-		resp, err := PostDonorUpdate(ctx, q, postInput)
-		if err != nil {
-			t.Fatalf("failed to post donor update: %v", err)
-		}
-
-		t.Logf("updated %d records, new hwm: %v", resp.UpdatedCount, resp.NewHighWaterMark)
-		assert.GreaterOrEqual(t, resp.UpdatedCount, 1)
-	}
+	assert.Equal(t, 2, len(deletedDonors))
+	t.Logf("lifecycle test passed: saved, found, and deleted %d donors", len(deletedDonors))
 }

@@ -23,7 +23,7 @@ func GetProject(ctx context.Context, q *Queries, input GetProjectInput) ([]DbPro
 }
 
 type SaveProjectInput struct {
-	ProjectIdn     int            `json:"project_idn" validate:"optional"`
+	ProjectIdn     int            `json:"project_idn,omitempty" validate:"optional"`
 	ProjectId      string         `json:"project_id" validate:"required"`
 	ProjectName    string         `json:"project_name" validate:"required"`
 	StartDt        string         `json:"start_dt,omitempty"`
@@ -42,6 +42,11 @@ type DeleteProjectInput struct {
 	ProjectIdn string `json:"project_idn" validate:"required"`
 }
 
-func DeleteProject(ctx context.Context, q *Queries, input []DeleteProjectInput) ([]DbProject, error) {
-	return callDbApi[[]DeleteProjectInput, []DbProject](ctx, q, "DeleteProject", input)
+type DeleteProjectRequest struct {
+	Cascade  bool                 `json:"cascade,omitempty"`
+	Projects []DeleteProjectInput `json:"projects"`
+}
+
+func DeleteProject(ctx context.Context, q *Queries, input DeleteProjectRequest) ([]DbProject, error) {
+	return callDbApi[DeleteProjectRequest, []DbProject](ctx, q, "DeleteProject", input)
 }
