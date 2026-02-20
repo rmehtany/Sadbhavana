@@ -78,7 +78,7 @@ BEGIN
     -- Parse input JSON
     INSERT INTO T_Donor (DonorIdn, DonorName, MobileNumber, City, EmailAddr, Country, BirthDt, PropertyList)
     SELECT 
-        NULLIF(T->>'donor_idn', '')::INT,
+        (T->>'donor_idn')::INT,
         T->>'donor_name',
         T->>'mobile_number',
         T->>'city',

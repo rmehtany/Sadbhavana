@@ -84,7 +84,7 @@ BEGIN
     -- Parse input JSON
     INSERT INTO T_Pledge (PledgeIdn, ProjectIdn, DonorIdn, PledgeTs, TreeCntPledged, TreeCntPlanted, PledgeCredit, PropertyList)
     SELECT
-        NULLIF(T->>'pledge_idn', '')::INT,
+        (T->>'pledge_idn')::INT,
         (T->>'project_idn')::INT,
         (T->>'donor_idn')::INT,
         COALESCE(NULLIF(T->>'pledge_ts', '')::TIMESTAMP, P_AnchorTs),
@@ -289,8 +289,8 @@ BEGIN
                 'pledge_idn', up.PledgeIdn,
                 'project_idn', up.ProjectIdn,
                 'donor_idn', up.DonorIdn,
-                'tree_cnt', up.TreeCnt,
-                'pledge_dt', up.PledgeDt,
+                'tree_cnt_pledged', up.TreeCntPledged,
+                'pledge_ts', up.PledgeTs,
                 'property_list', up.PropertyList
             ) ORDER BY PledgeIdn
         ), '[]'::jsonb
@@ -300,9 +300,8 @@ BEGIN
     WHERE up.PledgeIdn IN (SELECT PledgeIdn FROM T_PledgeDelete);
 
     -- Delete pledges
-    DELETE FROM stp.U_Pledge up
-    USING T_PledgeDelete tpd
-    WHERE up.PledgeIdn = tpd.PledgeIdn;
+    DELETE FROM stp.U_Pledge
+    WHERE PledgeIdn IN (SELECT PledgeIdn FROM T_PledgeDelete);
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
     CALL core.P_Step(p_RunLogIdn, v_Rc, 'DELETE stp.U_Pledge');
 

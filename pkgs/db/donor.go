@@ -22,14 +22,14 @@ func GetDonor(ctx context.Context, q *Queries, input GetDonorInput) ([]DbDonor, 
 }
 
 type SaveDonorInput struct {
-	DonorIdn     int            `json:"donor_idn" validate:"optional"`
+	DonorIdn     int            `json:"donor_idn,omitempty" validate:"optional"`
 	DonorName    string         `json:"donor_name" validate:"required"`
 	MobileNumber string         `json:"mobile_number" validate:"required"`
 	City         string         `json:"city" validate:"required"`
-	EmailAddr    string         `json:"email_addr" validate:"required"`
+	EmailAddr    string         `json:"email_addr,omitempty" validate:"required"`
 	Country      string         `json:"country" validate:"required"`
-	BirthDt      string         `json:"birth_dt" validate:"required"`
-	PropertyList map[string]any `json:"property_list"`
+	BirthDt      string         `json:"birth_dt,omitempty" validate:"required"`
+	PropertyList map[string]any `json:"property_list,omitempty"`
 }
 
 func SaveDonor(ctx context.Context, q *Queries, input []SaveDonorInput) ([]DbDonor, error) {
@@ -37,11 +37,11 @@ func SaveDonor(ctx context.Context, q *Queries, input []SaveDonorInput) ([]DbDon
 }
 
 type DeleteDonorInput struct {
-	DonorIdn int `json:"donor_idn" validate:"required"`
+	DonorIdn int `json:"donor_idn,omitempty" validate:"required"`
 }
 
 type DeleteDonorRequest struct {
-	Cascade bool               `json:"cascade"`
+	Cascade bool               `json:"cascade,omitempty"`
 	Donors  []DeleteDonorInput `json:"donors"`
 }
 
