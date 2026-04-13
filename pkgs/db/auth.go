@@ -61,6 +61,7 @@ func CreateAuthForProvider(ctx context.Context, q *Queries, authData AuthData) e
 }
 
 func GetAuthForProvider(ctx context.Context, q *Queries, providerName string) (AuthData, error) {
+	// return callDbApi[string, AuthData](ctx, q, "GetAuthProvider", providerName)
 	return callProcedureWithJSON[string, AuthData](ctx, q, "core", "P_GetAuthForProvider", providerName)
 }
 

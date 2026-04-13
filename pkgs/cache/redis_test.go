@@ -17,7 +17,7 @@ func TestRedisCache(t *testing.T) {
 	// create redis cache
 
 	ctx := context.Background()
-	err := conf.LoadEnvFromFile("../../.env")
+	err := conf.LoadEnvFromFile("../../.env.test")
 	assert.NoError(t, err, "Should load env file")
 	cfg := conf.GetConfig()
 	log.Printf("Redis URL: %s", cfg.RedisConfig.URL)

@@ -7,12 +7,15 @@ import (
 	"sadbhavana/tree-project/pkgs/file"
 
 	"time"
+
+	"google.golang.org/genai"
 )
 
 // Client represents an LLM provider client
 type Client interface {
 	UploadFile(ctx context.Context, filename string, mimeType file.MimeType, data io.Reader) (*file.FileInfo, error)
 	Prompt(ctx context.Context, req *Request) (*Response, error)
+	GenerateContent(ctx context.Context, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error)
 }
 
 // Common error types

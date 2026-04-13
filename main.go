@@ -12,6 +12,7 @@ import (
 
 	"sadbhavana/tree-project/pkgs/cli"
 	"sadbhavana/tree-project/pkgs/conf"
+	"sadbhavana/tree-project/pkgs/cron"
 	"sadbhavana/tree-project/pkgs/db"
 	"sadbhavana/tree-project/web"
 
@@ -22,6 +23,7 @@ import (
 )
 
 func main() {
+	fmt.Println("This is entry point")
 	// If CLI args are provided, run the CLI and exit.
 	if len(os.Args) > 1 {
 		cli.RunCLI()
@@ -38,6 +40,16 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to run database migrations: %v", err)
 	}
+
+	// Get DB pool for cron
+	dbPool, err := db.GetPool(context.Background())
+	if err != nil {
+		log.Fatalf("Failed to get DB pool: %v", err)
+	}
+
+	// Initialize and start cron scheduler
+	cronScheduler := cron.NewScheduler(cfg.CronConfig, dbPool)
+	cronScheduler.Start()
 	// Create router
 	router := chi.NewRouter()
 
@@ -82,9 +94,9 @@ func main() {
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
 		Handler:      router,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		ReadTimeout:  3000 * time.Second,
+		WriteTimeout: 3000 * time.Second,
+		IdleTimeout:  3000 * time.Second,
 	}
 
 	// Start server in goroutine
@@ -108,6 +120,8 @@ func main() {
 	if err := server.Shutdown(ctx); err != nil {
 		log.Fatalf("Server forced to shutdown: %v", err)
 	}
+
+	cronScheduler.Stop()
 
 	log.Println("Server stopped")
 }

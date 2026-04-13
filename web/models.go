@@ -88,6 +88,10 @@ type AdminPageInput struct {
 	BannerMsg string `query:"banner_msg"`
 }
 
+type DetectAndSendPhotosInput struct {
+	BannerMsg string `query:"banner_msg"`
+}
+
 type ProjectSearchInput struct {
 	ProjectSearch string `query:"project_search"`
 }

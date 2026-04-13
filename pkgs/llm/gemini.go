@@ -9,6 +9,7 @@ import (
 	"sadbhavana/tree-project/pkgs/utils"
 
 	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"google.golang.org/genai"
@@ -61,6 +62,7 @@ func NewGeminiClient(ctx context.Context, model GeminiModel, opts ...Option) (Cl
 	if apiKey == "" {
 		return nil, fmt.Errorf("API key is required")
 	}
+	fmt.Printf("Gemini apiKey is %s\n", apiKey)
 	if !isValidGeminiModel(model) {
 		return nil, fmt.Errorf("invalid Gemini model: %s", model)
 	}
@@ -77,6 +79,7 @@ func NewGeminiClient(ctx context.Context, model GeminiModel, opts ...Option) (Cl
 		APIKey:  apiKey,
 		Backend: genai.BackendGeminiAPI,
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Gemini client: %w", err)
 	}
@@ -86,6 +89,48 @@ func NewGeminiClient(ctx context.Context, model GeminiModel, opts ...Option) (Cl
 		model:  string(model),
 		config: config,
 	}, nil
+}
+
+func withRetry[T any](ctx context.Context, operation func() (T, error)) (T, error) {
+	var result T
+	var err error
+	maxRetries := 5
+	baseDelay := 10 * time.Second
+
+	for i := 0; i <= maxRetries; i++ {
+		result, err = operation()
+		if err == nil {
+			return result, nil
+		}
+
+		errStr := err.Error()
+		isRetryable := strings.Contains(errStr, "503") ||
+			strings.Contains(errStr, "429") ||
+			strings.Contains(errStr, "UNAVAILABLE") ||
+			strings.Contains(errStr, "unavailable") ||
+			strings.Contains(errStr, "rate limit") ||
+			strings.Contains(errStr, "Too Many Requests") ||
+			strings.Contains(errStr, "quota")
+
+		if !isRetryable || i == maxRetries {
+			return result, err
+		}
+
+		delay := baseDelay * (1 << i) // Exponential backoff: 10s, 20s, 40s, 80s, 160s
+		fmt.Printf("Gemini API call failed with retryable error (attempt %d/%d). Retrying in %v. Error: %v\n", i+1, maxRetries, delay, err)
+		select {
+		case <-time.After(delay):
+		case <-ctx.Done():
+			return result, ctx.Err()
+		}
+	}
+	return result, err
+}
+
+func (c *geminiClient) GenerateContent(ctx context.Context, content []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
+	return withRetry(ctx, func() (*genai.GenerateContentResponse, error) {
+		return c.client.Models.GenerateContent(ctx, c.model, content, config)
+	})
 }
 
 func (c *geminiClient) UploadFile(ctx context.Context, filename string, mimeType file.MimeType, data io.Reader) (*file.FileInfo, error) {
@@ -142,7 +187,9 @@ func (c *geminiClient) Prompt(ctx context.Context, req *Request) (*Response, err
 		config.TopP = &topP
 	}
 
-	resp, err := c.client.Models.GenerateContent(ctx, c.model, contents, config)
+	resp, err := withRetry(ctx, func() (*genai.GenerateContentResponse, error) {
+		return c.client.Models.GenerateContent(ctx, c.model, contents, config)
+	})
 	if err != nil {
 		return nil, c.handleError(err)
 	}

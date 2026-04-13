@@ -5,7 +5,7 @@ CREATE OR REPLACE PROCEDURE core.P_CreateAuthForProvider(
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    v_provider_name VARCHAR(64) := p_input_json->>'provider_name';
+    v_provider_name VARCHAR(64) := p_input_json->'provider_name';
     v_auth_config JSONB := p_input_json->'auth_config';
     v_active_token JSONB := p_input_json->'active_token';
 BEGIN
@@ -27,7 +27,7 @@ CREATE OR REPLACE PROCEDURE core.P_GetAuthForProvider(
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    v_provider_name VARCHAR(64) := p_input_json->>'provider_name';
+    v_provider_name VARCHAR(64) := p_input_json #>> '{}';
     v_auth_config JSONB;
     v_active_token JSONB;
 BEGIN
@@ -57,7 +57,7 @@ CREATE OR REPLACE PROCEDURE core.P_UpdateTokenForProvider(
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    v_provider_name VARCHAR(64) := p_input_json->>'provider_name';
+    v_provider_name VARCHAR(64) := p_input_json->'provider_name';
     v_new_token JSONB := p_input_json->'new_token';
 BEGIN
 
