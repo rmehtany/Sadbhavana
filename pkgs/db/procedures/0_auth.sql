@@ -31,6 +31,8 @@ DECLARE
     v_auth_config JSONB;
     v_active_token JSONB;
 BEGIN
+    --raise notice 'v_provider_name: %', v_provider_name;
+
     -- Query the table for the provider
     SELECT auth_config, active_token
     INTO v_auth_config, v_active_token
@@ -68,3 +70,8 @@ BEGIN
     WHERE core.Authentication.provider_name = v_provider_name;
 END;
 $$;
+/*
+SELECT * FROM core.Authentication;
+delete from core.Authentication;
+
+*/

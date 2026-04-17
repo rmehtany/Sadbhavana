@@ -62,19 +62,13 @@ CALL core.P_DbApi(
                 "project_name": "Example Plantation Site A",
                 "latitude": 22.4707,
                 "longitude": 70.0577,
-                "tree_cnt_pledged": 500
-            },
-            {
-                "project_id": "TEST_PROJ_002",
-                "project_name": "Example Plantation Site B",
-                "latitude": 22.3039,
-                "longitude": 70.7867,
-                "tree_cnt_pledged": 1000
+                "tree_cnt_pledged": 2
             }
         ]
     }'::JSONB,
     NULL -- Output is logged in core.V_RL
 );
+select * from stp.U_Project;
 
 -- 1.2 Get (Search) Projects
 CALL core.P_DbApi(
@@ -134,6 +128,8 @@ DECLARE
 BEGIN
     SELECT ProjectIdn INTO v_ProjectIdn FROM stp.U_Project WHERE ProjectId = 'TEST_PROJ_001' LIMIT 1;
     SELECT DonorIdn INTO v_DonorIdn FROM stp.U_Donor WHERE MobileNumber = '+91-9999988888' LIMIT 1;
+    raise notice 'v_ProjectIdn: %', v_ProjectIdn;
+    raise notice 'v_DonorIdn: %', v_DonorIdn;
 
     CALL core.P_DbApi(
         jsonb_build_object(
@@ -143,14 +139,15 @@ BEGIN
                 jsonb_build_object(
                     'project_idn', v_ProjectIdn,
                     'donor_idn', v_DonorIdn,
-                    'tree_cnt_pledged', 5,
-                    'pledge_credit', '{"Personal": 5}'::jsonb
+                    'tree_cnt_pledged', 2,
+                    'pledge_credit', '{"Personal": 2}'::jsonb
                 )
             )
         ),
         v_OutputJson
     );
 END $$;
+select * from core.V_RL order by RunLogIdn desc limit 1;
 
 -- 3.2 Get Pledges
 CALL core.P_DbApi(
@@ -185,6 +182,7 @@ BEGIN
         v_OutputJson
     );
 END $$;
+select * from core.V_RL order by RunLogIdn desc limit 1;
 
 -- 4.2 Get Trees
 CALL core.P_DbApi(
@@ -221,6 +219,7 @@ BEGIN
         v_OutputJson
     );
 END $$;
+select * from core.V_RL order by RunLogIdn desc limit 1;
 
 -- ============================================================================
 -- 5. PHOTO EXAMPLES
@@ -269,6 +268,7 @@ BEGIN
         v_OutputJson
     );
 END $$;
+select * from core.V_RL order by RunLogIdn desc limit 1;
 
 -- 5.3 Get Tree Photos
 DO $$
@@ -288,6 +288,7 @@ BEGIN
         v_OutputJson
     );
 END $$;
+select * from core.V_RL order by RunLogIdn desc limit 1;
 
 -- ============================================================================
 -- 6. DONOR UPDATE EXAMPLES
@@ -359,6 +360,7 @@ BEGIN
         );
     END IF;
 END $$;
+select * from core.V_RL order by RunLogIdn desc limit 1;
 
 -- 7.3 Delete Provider
 -- Note: Provider cannot be deleted if it has associated files
@@ -390,13 +392,14 @@ BEGIN
                 'db_api_name', 'DeleteDonor',
                 'request', jsonb_build_object(
                     'donors', jsonb_build_array(jsonb_build_object('donor_idn', v_DonorIdn)),
-                    'cascade', false
+                    'cascade', true
                 )
             ),
             v_OutputJson
         );
     END IF;
 END $$;
+select * from core.V_RL order by RunLogIdn desc limit 1;
 
 -- 8.2 Delete Pledge (Standard - fails if trees exist)
 DO $$
@@ -419,6 +422,7 @@ BEGIN
         );
     END IF;
 END $$;
+select * from core.V_RL order by RunLogIdn desc limit 1;
 
 -- 8.3 Delete Tree (by Pledge)
 DO $$
@@ -440,6 +444,7 @@ BEGIN
         );
     END IF;
 END $$;
+select * from core.V_RL order by RunLogIdn desc limit 1;
 
 -- 8.4 Cascade Delete Project (and all related data)
 DO $$
@@ -462,6 +467,7 @@ BEGIN
         );
     END IF;
 END $$;
+select * from core.V_RL order by RunLogIdn desc limit 1;
 
 -- ============================================================================
 -- 9. MONITORING RUN LOGS
