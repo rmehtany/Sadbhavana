@@ -12,6 +12,7 @@ import (
 	"sadbhavana/tree-project/pkgs/llmactions"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -188,7 +189,7 @@ func FinalExtractImageDataFromFolderInfoList(ctx context.Context, q *db.Queries,
 func updateTreeIdAndNameInFileInfoMap(extractedData []ExtractionResult, fileInfoMap map[string]ImageInfo) {
 	for _, res := range extractedData {
 		image := fileInfoMap[res.FileID]
-		fmt.Printf("res.FileName is %s and res.TreeID is %s", res.FileName, res.TreeID)
+		// fmt.Printf("res.FileName is %s and res.TreeID is %s\n", res.FileName, res.TreeID)
 
 		if res.TreeID != "" {
 			image.TreeID = res.TreeID
@@ -203,8 +204,8 @@ func updateTreeIdAndNameInFileInfoMap(extractedData []ExtractionResult, fileInfo
 			fileInfoMap[res.FileID] = image
 		} else {
 			delete(fileInfoMap, res.FileID)
-			fmt.Printf("Deleted file %s from fileInfoMap\n", res.FileName)
-			fmt.Println("fileinfomap size is ", len(fileInfoMap))
+			// fmt.Printf("Deleted file %s from fileInfoMap\n", res.FileName)
+			// fmt.Println("fileinfomap size is ", len(fileInfoMap))
 		}
 	}
 }
@@ -283,54 +284,75 @@ func mapFileInfoAndImageSource(imageFile ImageSource) ImageInfo {
 }
 
 func CreatePartsChanFromFiles(res *drive.FileList, fileStore *file.UpdatedGoogleDriveFileStore, partsChan chan ImageSource) error {
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(res.Files))
+
 	for _, f := range res.Files {
-		dl, err := fileStore.Service.Files.Get(f.Id).Download()
-		if err != nil {
-			return err
-		}
-		data, err := io.ReadAll(dl.Body)
-		defer dl.Body.Close()
-		if err != nil {
-			return err
-		}
+		wg.Add(1)
+		go func(f *drive.File) {
+			defer wg.Done()
 
-		var latitude, longitude float64
-		var photoTime time.Time
-
-		if f.ImageMediaMetadata != nil {
-			if f.ImageMediaMetadata.Location != nil {
-				latitude = f.ImageMediaMetadata.Location.Latitude
-				longitude = f.ImageMediaMetadata.Location.Longitude
+			dl, err := fileStore.Service.Files.Get(f.Id).Download()
+			if err != nil {
+				errChan <- err
+				return
 			}
-			photoTime = MapStringToTime(f.ImageMediaMetadata.Time)
-		} else {
-			photoTime = MapStringToTime(f.CreatedTime)
-		}
+			defer dl.Body.Close()
 
-		filePath := ""
-		if len(f.Parents) > 0 {
-			parentID := f.Parents[0]
-			parentFolder, err := fileStore.Service.Files.Get(parentID).Fields("name").Do()
-			if err == nil {
-				filePath = parentFolder.Name + "/" + f.Name
+			data, err := io.ReadAll(dl.Body)
+			if err != nil {
+				errChan <- err
+				return
+			}
+
+			var latitude, longitude float64
+			var photoTime time.Time
+
+			if f.ImageMediaMetadata != nil {
+				if f.ImageMediaMetadata.Location != nil {
+					latitude = f.ImageMediaMetadata.Location.Latitude
+					longitude = f.ImageMediaMetadata.Location.Longitude
+				}
+				photoTime = MapStringToTime(f.ImageMediaMetadata.Time)
 			} else {
-				log.Printf("Failed to get parent folder name for ID %s: %v", parentID, err)
-				filePath = parentID + "/" + f.Name // Fallback to ID
+				photoTime = MapStringToTime(f.CreatedTime)
 			}
-		} else {
-			filePath = f.Name
-		}
 
-		// We wrap the data and a text hint so Gemini knows which file is which
-		partsChan <- ImageSource{
-			Name:      f.Name,
-			ID:        f.Id,
-			Path:      filePath,
-			MimeType:  f.MimeType,
-			Longitude: longitude,
-			Latitude:  latitude,
-			PhotoTime: photoTime,
-			Data:      data,
+			filePath := ""
+			if len(f.Parents) > 0 {
+				parentID := f.Parents[0]
+				parentFolder, err := fileStore.Service.Files.Get(parentID).Fields("name").Do()
+				if err == nil {
+					filePath = parentFolder.Name + "/" + f.Name
+				} else {
+					log.Printf("Failed to get parent folder name for ID %s: %v", parentID, err)
+					filePath = parentID + "/" + f.Name // Fallback to ID
+				}
+			} else {
+				filePath = f.Name
+			}
+
+			// We wrap the data and a text hint so Gemini knows which file is which
+			partsChan <- ImageSource{
+				Name:      f.Name,
+				ID:        f.Id,
+				Path:      filePath,
+				MimeType:  f.MimeType,
+				Longitude: longitude,
+				Latitude:  latitude,
+				PhotoTime: photoTime,
+				Data:      data,
+			}
+		}(f)
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	// Return the first error if any
+	for err := range errChan {
+		if err != nil {
+			return err
 		}
 	}
 	return nil

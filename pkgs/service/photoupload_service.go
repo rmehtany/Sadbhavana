@@ -6,6 +6,7 @@ import (
 	"sadbhavana/tree-project/pkgs/db"
 	"sadbhavana/tree-project/pkgs/file"
 	"sadbhavana/tree-project/pkgs/whatsapp"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -68,17 +69,37 @@ func PhotoDetectionAndStorage(ctx context.Context) error {
 }
 
 func RenameFiles(ctx context.Context, q *db.Queries, fileInfoMap map[string]whatsapp.ImageInfo, fileStore *file.UpdatedGoogleDriveFileStore) error {
-	fmt.Print("Renaming files start : current time is ", time.Now())
+	fmt.Printf("Renaming files start : current time is %v\n", time.Now())
+
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(fileInfoMap))
+
 	for _, image := range fileInfoMap {
 		if image.TreeID != "" {
-			updateFile := &drive.File{Name: image.Name}
-			_, err := fileStore.Service.Files.Update(image.ID, updateFile).Do()
+			wg.Add(1)
+			go func(img whatsapp.ImageInfo) {
+				defer wg.Done()
+				updateFile := &drive.File{Name: img.Name}
+				_, err := fileStore.Service.Files.Update(img.ID, updateFile).Do()
 
-			if err != nil {
-				return fmt.Errorf("failed to rename file %s: %w", image.Name, err)
-			}
+				if err != nil {
+					errChan <- fmt.Errorf("failed to rename file %s: %w", img.Name, err)
+				}
+			}(image)
 		}
 	}
-	fmt.Print("Renaming files end : current time is ", time.Now())
+
+	wg.Wait()
+	close(errChan)
+
+	fmt.Printf("\nRenaming files end : current time is %v\n", time.Now())
+
+	// Return the first error if any
+	for err := range errChan {
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
