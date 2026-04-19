@@ -12,6 +12,10 @@ import (
 
 var ActiveTokens map[providers.ProviderType]*oauth2.Token
 
+func init() {
+	ActiveTokens = make(map[providers.ProviderType]*oauth2.Token)
+}
+
 const tokenLockKey = "auth_token_lock:"
 
 func GetActiveToken(ctx context.Context, q *db.Queries, providerType providers.ProviderType) (oauth2.Token, error) {
@@ -51,10 +55,20 @@ func GetActiveToken(ctx context.Context, q *db.Queries, providerType providers.P
 	}
 
 	// Use the oauth2Client to refresh the token
-	newToken, err := oauth2Client.RefreshToken(ctx, getAuthForProviderOutput.ActiveToken.RefreshToken)
-	if err != nil {
-		return oauth2.Token{}, errors.Annotatef(err, "failed to refresh token")
+	var newToken *oauth2.Token
+	if getAuthForProviderOutput.ActiveToken != nil {
+		newToken, err = oauth2Client.RefreshToken(ctx, getAuthForProviderOutput.ActiveToken.RefreshToken)
+		if err != nil {
+			return oauth2.Token{}, errors.Annotatef(err, "failed to refresh token")
+		}
+	} else {
+		// No active token, get a new one using the client credentials
+		newToken, err = oauth2Client.RefreshToken(ctx, "")
+		if err != nil {
+			return oauth2.Token{}, errors.Annotatef(err, "failed to get initial token")
+		}
 	}
+
 	if newToken == nil {
 		return oauth2.Token{}, errors.New("refreshed token is nil")
 	}

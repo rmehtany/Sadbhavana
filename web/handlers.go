@@ -11,6 +11,7 @@ import (
 
 	"sadbhavana/tree-project/pkgs/db"
 	"sadbhavana/tree-project/pkgs/html"
+	"sadbhavana/tree-project/pkgs/service"
 	"sadbhavana/tree-project/pkgs/template"
 	"sadbhavana/tree-project/pkgs/utils"
 
@@ -138,6 +139,7 @@ func (h *Handlers) getIndividualTreeMarkers(ctx context.Context, input *GetMarke
 }
 
 func (h *Handlers) GetTreeDetail(ctx context.Context, treeID string) (*template.TreeDetail, error) {
+	fmt.Printf("Inside getTreeById")
 	tree, err := h.queries.GetTreeByID(ctx, treeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tree detail: %w", err)
@@ -417,4 +419,15 @@ func CreateTree(ctx context.Context, input *FormInput) (*RedirectResponse, error
 	return &RedirectResponse{
 		HXRedirect: "/admin?banner_msg=" + url.QueryEscape(msg),
 	}, nil
+}
+
+// GET /api/photos/detect-and-send - Detect and send photos
+func DetectAndSendPhotos(ctx context.Context, input *DetectAndSendPhotosInput) (*html.HTMLResponse, error) {
+	// Initiate photo selection from Google Drive
+	fmt.Printf("Printing input %v", input)
+	err := service.PhotoDetectionAndStorage(ctx)
+	if err != nil {
+		fmt.Errorf("failed to detect and send photos: %w", err)
+	}
+	return html.CreateHTMLResponse(ctx, templ.Raw("Photo detection and sending initiated."))
 }

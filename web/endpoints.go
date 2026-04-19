@@ -184,5 +184,12 @@ func RegisterAdminHandlers(api huma.API) error {
 		Summary:     "Create a new tree",
 	}, CreateTree)
 
+	huma.Register(api, huma.Operation{
+		OperationID: "detect-and-send-photos",
+		Method:      "GET",
+		Path:        "/api/photos/detect-and-send",
+		Summary:     "Detect and send photos",
+	}, DetectAndSendPhotos)
+
 	return nil
 }

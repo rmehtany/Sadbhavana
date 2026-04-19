@@ -362,6 +362,7 @@ CALL core.P_DbApi (
     NULL
 );
 
+
 -- Example 2: Upload multiple tree photos
 CALL core.P_DbApi (
     '{

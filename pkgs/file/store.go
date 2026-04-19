@@ -22,7 +22,8 @@ func DownloadFile(ctx context.Context, q *db.Queries, fileInfo FileInfo) (io.Rea
 	case "local":
 		store = NewLocalFileStore()
 	case "google":
-		store, err = NewGoogleDriveFileStore(ctx, q)
+		// store, err = NewGoogleDriveFileStore(ctx, q)
+		store, err = NewUpdatedGoogleDriveFileStore(ctx, q)
 		if err != nil {
 			return nil, nil, err
 		}

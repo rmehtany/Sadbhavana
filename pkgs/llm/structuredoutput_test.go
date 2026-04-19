@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"google.golang.org/genai"
 )
 
 // Test structs
@@ -30,6 +32,11 @@ type mockClient struct {
 	responses []string
 	callCount int
 	shouldErr bool
+}
+
+// GenerateContent implements [Client].
+func (m *mockClient) GenerateContent(ctx context.Context, contents []*genai.Content, config *genai.GenerateContentConfig) (*genai.GenerateContentResponse, error) {
+	panic("unimplemented")
 }
 
 func (m *mockClient) UploadFile(ctx context.Context, filename string, mimeType file.MimeType, data io.Reader) (*file.FileInfo, error) {

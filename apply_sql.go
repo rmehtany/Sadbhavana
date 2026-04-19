@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func main() {
+func main_pledgeCheck() {
 	ctx := context.Background()
 	conf.LoadEnvFromFile(".env.test")
 

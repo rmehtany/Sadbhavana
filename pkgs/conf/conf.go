@@ -18,6 +18,7 @@ type Config struct {
 	PostgresConfig PostgresConfig
 	WhatsappConfig WhatsappConfig
 	RedisConfig    RedisConfig
+	CronConfig     CronConfig
 }
 
 type BaseConfig struct {
@@ -45,6 +46,11 @@ type RedisConfig struct {
 
 type GeminiConfig struct {
 	APIKey string `env:"GEMINI_API_KEY,required" validate:"required"`
+}
+
+type CronConfig struct {
+	Enabled bool              `env:"CRON_ENABLED" default:"false"`
+	Jobs    map[string]string `env:"CRON_JOBS"` // Map of job name to schedule
 }
 
 func (a *PostgresConfig) DBURI() string {
@@ -86,6 +92,7 @@ func NewDotEnvProvider(filePath string) *DotEnvProvider {
 		envMap: make(map[string]string),
 	}
 	provider.loadFromFile(filePath)
+	fmt.Print(provider)
 	return provider
 }
 
@@ -124,7 +131,9 @@ func (d *DotEnvProvider) loadFromFile(filePath string) {
 		parts := strings.SplitN(line, "=", 2)
 		if len(parts) == 2 {
 			key := strings.TrimSpace(parts[0])
+			fmt.Println(key)
 			value := strings.TrimSpace(parts[1])
+			fmt.Println(value)
 			// Remove quotes if present
 			if len(value) >= 2 && ((value[0] == '"' && value[len(value)-1] == '"') || (value[0] == '\'' && value[len(value)-1] == '\'')) {
 				value = value[1 : len(value)-1]
@@ -146,6 +155,7 @@ func NewMultiProvider(providers ...ConfigProvider) *MultiProvider {
 
 func (m *MultiProvider) Name() string {
 	names := make([]string, len(m.providers))
+
 	for i, p := range m.providers {
 		names[i] = p.Name()
 	}

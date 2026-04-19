@@ -69,6 +69,19 @@ func getConn(ctx context.Context) (DBTX, error) {
 	return dbtx, poolErr
 }
 
+// GetPool returns the singleton database pool instance as *pgxpool.Pool
+func GetPool(ctx context.Context) (*pgxpool.Pool, error) {
+	conn, err := getConn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pool, ok := conn.(*pgxpool.Pool)
+	if !ok {
+		return nil, fmt.Errorf("database connection is not a pool: %T", conn)
+	}
+	return pool, nil
+}
+
 // createConnectionPool creates a new pgx connection pool (internal function)
 func createConnectionPool(ctx context.Context, config *DatabaseConfig) (DBTX, error) {
 	poolConfig, err := pgxpool.ParseConfig(config.ConnectionString())

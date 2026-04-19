@@ -14,3 +14,9 @@ SELECT id, donor_name, phone_number
 FROM core.donor
 WHERE donor_name ILIKE '%' || $1 || '%' OR phone_number ILIKE '%' || $1 || '%'
 ORDER BY donor_name;
+
+-- name: SearchDonorByTreeId :one
+-- Search donor by TreeId
+SELECT id, donor_name, phone_number
+FROM core.donor
+WHERE tree_id ILIKE '%' || $1 || '%';
