@@ -47,9 +47,9 @@ require (
 	go.opentelemetry.io/otel/metric v1.38.0 // indirect
 	go.opentelemetry.io/otel/trace v1.38.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/net v0.47.0 // indirect
-	golang.org/x/sync v0.18.0 // indirect
-	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/net v0.51.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
+	golang.org/x/sys v0.41.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251124214823-79d6a2a48846 // indirect
 	google.golang.org/grpc v1.77.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
@@ -57,7 +57,7 @@ require (
 )
 
 require (
-	github.com/a-h/templ v0.3.960
+	github.com/a-h/templ v0.3.1020
 	github.com/bsm/redislock v0.9.4
 	github.com/go-playground/validator/v10 v10.28.0
 	github.com/invopop/jsonschema v0.13.0
@@ -68,9 +68,9 @@ require (
 	github.com/redis/go-redis/v9 v9.17.2
 	github.com/sethvargo/go-envconfig v1.3.0
 	github.com/urfave/cli/v2 v2.27.7
-	golang.org/x/crypto v0.45.0 // indirect
+	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/oauth2 v0.34.0
-	golang.org/x/text v0.31.0 // indirect
+	golang.org/x/text v0.34.0 // indirect
 	google.golang.org/api v0.257.0
 	google.golang.org/genai v1.35.0
 )
