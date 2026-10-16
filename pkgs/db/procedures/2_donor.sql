@@ -63,45 +63,22 @@ DECLARE
     v_Rc INTEGER;
     v_DuplicateMobileNumbers TEXT;
 BEGIN
-    -- Create temp table for input donors
-    CREATE TEMP TABLE T_Donor (
-        DonorIdn        INT,
-        DonorName       VARCHAR(128),
-        MobileNumber    VARCHAR(64),
-        City            VARCHAR(64),
-        EmailAddr       VARCHAR(64),
-        Country         VARCHAR(64),
-        BirthDt         DATE,
-        PropertyList    JSONB
-    ) ON COMMIT DROP;
-
-    -- Parse input JSON
-    INSERT INTO T_Donor (DonorIdn, DonorName, MobileNumber, City, EmailAddr, Country, BirthDt, PropertyList)
-    SELECT 
-        (T->>'donor_idn')::INT,
-        T->>'donor_name',
-        T->>'mobile_number',
-        T->>'city',
-        T->>'email_addr',
-        T->>'country',
-        NULLIF(T->>'birth_dt', '')::DATE,
-        COALESCE(T->'property_list', '{}'::jsonb)
-    FROM jsonb_array_elements(p_InputJson) AS T;
-    GET DIAGNOSTICS v_Rc = ROW_COUNT;
-    CALL core.P_Step(p_RunLogIdn, v_Rc, 'INSERT T_Donor');
-
-    -- Validate required fields
-    IF EXISTS (SELECT 1 FROM T_Donor WHERE DonorName IS NULL OR MobileNumber IS NULL OR City IS NULL OR Country IS NULL) THEN
-        RAISE EXCEPTION 'Missing required fields: donor_name, mobile_number, city, country are mandatory';
+    -- Validate required fields directly from JSON in memory
+    IF EXISTS (
+        SELECT 1 
+        FROM jsonb_to_recordset(p_InputJson) AS t(donor_name text, mobile_number text, city text, country text)
+        WHERE donor_name IS NULL OR mobile_number IS NULL OR city IS NULL OR country IS NULL
+    ) THEN
+        RAISE EXCEPTION 'Missing required fields';
     END IF;
 
     -- Check for duplicate MobileNumber within input batch
-    SELECT string_agg(DISTINCT MobileNumber, ', ')
+    SELECT string_agg(DISTINCT mobile_number, ', ')
     INTO v_DuplicateMobileNumbers
     FROM 
-        (SELECT MobileNumber
-        FROM T_Donor
-        GROUP BY MobileNumber
+        (SELECT mobile_number
+        FROM jsonb_to_recordset(p_InputJson) AS t(mobile_number text)
+        GROUP BY mobile_number
         HAVING COUNT(*) > 1
     ) dups;
 
@@ -110,12 +87,12 @@ BEGIN
     END IF;
 
     -- Check for duplicate MobileNumber in existing records (excluding current record for updates)
-    SELECT string_agg(DISTINCT td.MobileNumber, ', ')
+    SELECT string_agg(DISTINCT td.mobile_number, ', ')
     INTO v_DuplicateMobileNumbers
-    FROM T_Donor td
+    FROM jsonb_to_recordset(p_InputJson) AS td(donor_idn int, mobile_number text)
         JOIN stp.U_Donor ud 
-            ON td.MobileNumber = ud.MobileNumber
-            AND (td.DonorIdn IS NULL OR td.DonorIdn != ud.DonorIdn);
+            ON td.mobile_number = ud.MobileNumber
+            AND (td.donor_idn IS NULL OR td.donor_idn != ud.DonorIdn);
 
     IF v_DuplicateMobileNumbers IS NOT NULL THEN
         RAISE EXCEPTION 'Duplicate MobileNumber(s) already exist: %. MobileNumber must be unique.', v_DuplicateMobileNumbers;
@@ -131,35 +108,53 @@ BEGIN
 
     -- Update existing donors
     UPDATE stp.U_Donor ud
-    SET DonorName = td.DonorName,
-        MobileNumber = td.MobileNumber,
-        City = td.City,
-        EmailAddr = td.EmailAddr,
-        Country = td.Country,
-        BirthDt = td.BirthDt,
-        PropertyList = td.PropertyList,
+    SET DonorName = td.donor_name,
+        MobileNumber = td.mobile_number,
+        City = td.city,
+        EmailAddr = td.email_addr,
+        Country = td.country,
+        BirthDt = NULLIF(td.birth_dt, '')::DATE,
+        PropertyList = COALESCE(td.property_list, '{}'::jsonb),
         UserIdn = P_UserIdn,
         Ts = P_AnchorTs
-    FROM T_Donor td
-    WHERE ud.DonorIdn = td.DonorIdn
-      AND td.DonorIdn IS NOT NULL;
+    FROM jsonb_to_recordset(p_InputJson) AS td(
+        donor_idn     INT,
+        donor_name    VARCHAR(128),
+        mobile_number VARCHAR(64),
+        city          VARCHAR(64),
+        email_addr    VARCHAR(64),
+        country       VARCHAR(64),
+        birth_dt      TEXT,
+        property_list JSONB
+    )
+    WHERE ud.DonorIdn = td.donor_idn
+      AND td.donor_idn IS NOT NULL;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
     CALL core.P_Step(p_RunLogIdn, v_Rc, 'UPDATE stp.U_Donor');
 
     -- Insert new donors
     INSERT INTO stp.U_Donor (DonorName, MobileNumber, City, EmailAddr, Country, BirthDt, PropertyList, UserIdn, Ts)
     SELECT 
-        td.DonorName,
-        td.MobileNumber,
-        td.City,
-        td.EmailAddr,
-        td.Country,
-        td.BirthDt,
-        td.PropertyList,
+        td.donor_name,
+        td.mobile_number,
+        td.city,
+        td.email_addr,
+        td.country,
+        NULLIF(td.birth_dt, '')::DATE,
+        COALESCE(td.property_list, '{}'::jsonb),
         P_UserIdn,
         P_AnchorTs
-    FROM T_Donor td
-    WHERE td.DonorIdn IS NULL;
+    FROM jsonb_to_recordset(p_InputJson) AS td(
+        donor_idn     INT,
+        donor_name    VARCHAR(128),
+        mobile_number VARCHAR(64),
+        city          VARCHAR(64),
+        email_addr    VARCHAR(64),
+        country       VARCHAR(64),
+        birth_dt      TEXT,
+        property_list JSONB
+    )
+    WHERE td.donor_idn IS NULL;
     GET DIAGNOSTICS v_Rc = ROW_COUNT;
     CALL core.P_Step(p_RunLogIdn, v_Rc, 'INSERT stp.U_Donor');
 
@@ -180,7 +175,10 @@ BEGIN
     )
     INTO p_OutputJson
     FROM stp.U_Donor ud
-    WHERE ud.MobileNumber IN (SELECT MobileNumber FROM T_Donor);
+    WHERE ud.MobileNumber IN (
+        SELECT mobile_number 
+        FROM jsonb_to_recordset(p_InputJson) AS t(mobile_number text)
+    );
 END;
 $BODY$;
 
